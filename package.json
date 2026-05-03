@@ -6,5 +6,8 @@
     "dev": "node server.mjs --watch",
     "start": "node server.mjs",
     "build": "node server.mjs --build-only"
+  },
+  "devDependencies": {
+    "sass": "^1.89.0"
   }
 }

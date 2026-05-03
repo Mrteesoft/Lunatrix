@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { access, stat } from "node:fs/promises";
+import { access, cp, mkdir, rm, stat } from "node:fs/promises";
 import { createReadStream, watch, writeFileSync } from "node:fs";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { Readable } from "node:stream";
@@ -7,10 +7,11 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const sass = require("../node_modules/sass");
+const sass = require("sass");
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const frontendDir = dirname(currentFilePath);
+const staticBuildDir = join(frontendDir, "dist");
 const host = process.env.FRONTEND_HOST || "127.0.0.1";
 const port = Number.parseInt(process.env.FRONTEND_PORT || "4173", 10);
 const backendBaseUrl = new URL(process.env.FRONTEND_API_PROXY_BASE_URL || "http://127.0.0.1:8000");
@@ -47,6 +48,24 @@ function compileStyles() {
 
   writeFileSync(outputPath, compiled.css);
   process.stdout.write(`[frontend] built styles.css from styles.scss\n`);
+}
+
+async function copyStaticBuild() {
+  await rm(staticBuildDir, { force: true, recursive: true });
+  await mkdir(join(staticBuildDir, "static"), { recursive: true });
+
+  await cp(join(frontendDir, "index.html"), join(staticBuildDir, "index.html"));
+
+  for (const directoryName of ["company", "impact", "platform", "resources", "solutions"]) {
+    await cp(join(frontendDir, directoryName), join(staticBuildDir, directoryName), { recursive: true });
+  }
+
+  for (const fileName of ["api-base.js", "app.js", "home.js", "styles.css"]) {
+    await cp(join(frontendDir, fileName), join(staticBuildDir, "static", fileName));
+  }
+
+  await cp(join(frontendDir, "assets"), join(staticBuildDir, "static", "assets"), { recursive: true });
+  process.stdout.write(`[frontend] exported static site to ${staticBuildDir}\n`);
 }
 
 function watchStyles() {
@@ -218,6 +237,7 @@ async function main() {
   }
 
   if (buildOnly) {
+    await copyStaticBuild();
     return;
   }
 

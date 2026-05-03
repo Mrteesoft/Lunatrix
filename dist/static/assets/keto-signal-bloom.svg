@@ -1,0 +1,92 @@
+<svg width="2400" height="1500" viewBox="0 0 2400 1500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="1200" y1="0" x2="1200" y2="1500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#083331" />
+      <stop offset="1" stop-color="#0A2A2A" />
+    </linearGradient>
+    <linearGradient id="petal-violet" x1="250" y1="120" x2="970" y2="930" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D6D4F6" />
+      <stop offset="0.34" stop-color="#9EA7F4" />
+      <stop offset="0.72" stop-color="#4758B8" />
+      <stop offset="1" stop-color="#1E286C" />
+    </linearGradient>
+    <linearGradient id="petal-ivory" x1="1320" y1="30" x2="1930" y2="690" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E9EEE0" />
+      <stop offset="0.55" stop-color="#BCD2D5" />
+      <stop offset="1" stop-color="#7EAFB2" />
+    </linearGradient>
+    <linearGradient id="petal-gold" x1="1410" y1="130" x2="2380" y2="780" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DDE756" />
+      <stop offset="0.48" stop-color="#F3C402" />
+      <stop offset="0.78" stop-color="#F0A102" />
+      <stop offset="1" stop-color="#D45700" />
+    </linearGradient>
+    <linearGradient id="petal-peach" x1="690" y1="950" x2="1620" y2="1410" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE0C2" />
+      <stop offset="0.48" stop-color="#FFB251" />
+      <stop offset="0.8" stop-color="#FF7C39" />
+      <stop offset="1" stop-color="#E94336" />
+    </linearGradient>
+    <linearGradient id="petal-olive" x1="1280" y1="870" x2="2350" y2="1350" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A7D39E" />
+      <stop offset="0.52" stop-color="#7FA86B" />
+      <stop offset="1" stop-color="#506C43" />
+    </linearGradient>
+    <linearGradient id="petal-aqua" x1="-120" y1="760" x2="420" y2="1470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D8FFF6" />
+      <stop offset="0.44" stop-color="#77D9E3" />
+      <stop offset="1" stop-color="#2C9DB1" />
+    </linearGradient>
+    <linearGradient id="ribbon-green" x1="360" y1="680" x2="1910" y2="870" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#143B2C" />
+      <stop offset="0.28" stop-color="#3A977B" />
+      <stop offset="0.54" stop-color="#103E38" />
+      <stop offset="0.84" stop-color="#2A6A52" />
+      <stop offset="1" stop-color="#163728" />
+    </linearGradient>
+    <linearGradient id="ribbon-purple" x1="120" y1="930" x2="1140" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1B556B" />
+      <stop offset="0.44" stop-color="#163B63" />
+      <stop offset="0.7" stop-color="#3D0E9A" />
+      <stop offset="1" stop-color="#120B4F" />
+    </linearGradient>
+    <radialGradient id="bloom-left" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(520 380) rotate(90) scale(420 340)">
+      <stop stop-color="#FFF0B3" />
+      <stop offset="0.38" stop-color="#D3D36C" />
+      <stop offset="0.7" stop-color="#7B9246" />
+      <stop offset="1" stop-color="#30502E" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bloom-bottom" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1220 1160) rotate(90) scale(360 460)">
+      <stop stop-color="#FFE3BC" />
+      <stop offset="0.48" stop-color="#FFC265" />
+      <stop offset="1" stop-color="#FF6E4C" stop-opacity="0" />
+    </radialGradient>
+    <filter id="soft-blur" x="-220" y="-220" width="2840" height="1940" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="12" />
+    </filter>
+    <filter id="heavy-blur" x="-420" y="-420" width="3240" height="2340" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="48" />
+    </filter>
+  </defs>
+
+  <rect width="2400" height="1500" fill="url(#bg)" />
+
+  <g filter="url(#soft-blur)">
+    <ellipse cx="560" cy="420" rx="370" ry="550" transform="rotate(22 560 420)" fill="url(#petal-violet)" />
+    <ellipse cx="1540" cy="300" rx="340" ry="400" transform="rotate(26 1540 300)" fill="url(#petal-ivory)" />
+    <ellipse cx="1860" cy="430" rx="760" ry="430" transform="rotate(-9 1860 430)" fill="url(#petal-gold)" />
+    <ellipse cx="1170" cy="1190" rx="760" ry="280" transform="rotate(-17 1170 1190)" fill="url(#petal-peach)" />
+    <ellipse cx="1830" cy="1080" rx="800" ry="320" transform="rotate(-7 1830 1080)" fill="url(#petal-olive)" />
+    <ellipse cx="-20" cy="1140" rx="250" ry="330" transform="rotate(-14 -20 1140)" fill="url(#petal-aqua)" />
+    <path d="M120 920C412 782 744 740 1116 786C1472 830 1818 836 2172 772L2234 842C1878 920 1576 966 1266 984C854 1006 490 986 186 934L120 920Z" fill="url(#ribbon-green)" />
+    <path d="M168 968C430 890 666 876 888 910C712 968 520 1026 278 1064L168 968Z" fill="url(#ribbon-purple)" />
+    <path d="M912 806C1052 656 1220 556 1486 474C1392 604 1308 726 1230 890C1126 852 1024 824 912 806Z" fill="#7EA703" />
+  </g>
+
+  <g filter="url(#heavy-blur)" opacity="0.72">
+    <ellipse cx="520" cy="376" rx="184" ry="174" fill="url(#bloom-left)" />
+    <ellipse cx="1220" cy="1160" rx="330" ry="244" fill="url(#bloom-bottom)" />
+    <ellipse cx="1710" cy="186" rx="250" ry="150" fill="#F4F0D7" />
+    <ellipse cx="2240" cy="182" rx="190" ry="120" fill="#F6D600" />
+  </g>
+</svg>

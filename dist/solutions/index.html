@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lunatrix Solutions | Signal Use Cases</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="page-solutions">
+    <main class="page-stage">
+      <div class="hero-backdrop" aria-hidden="true">
+        <div class="hero-backdrop-layer hero-backdrop-base"></div>
+        <div class="hero-backdrop-layer hero-backdrop-echo"></div>
+        <div class="hero-backdrop-vignette"></div>
+        <div class="hero-backdrop-grain"></div>
+      </div>
+
+      <div class="page-shell">
+        <header class="site-header">
+          <a class="brand" href="/">Lunatrix</a>
+
+          <nav class="site-nav" aria-label="Primary">
+            <a href="/platform">Platform</a>
+            <a class="is-active" href="/solutions">Solutions</a>
+            <a href="/impact">Impact</a>
+            <a href="/resources">Resources</a>
+            <a href="/company">Company</a>
+          </nav>
+
+          <a class="top-cta" href="/resources">Get started</a>
+        </header>
+
+        <div class="page-main">
+          <section class="page-hero">
+            <div class="page-grid">
+              <div class="page-copy">
+                <p class="eyebrow">SOLUTIONS</p>
+                <h1>Use the same signal intelligence in different product layers.</h1>
+              </div>
+
+              <div class="page-detail">
+                <p class="page-lead">One model stack. Multiple signal products.</p>
+                <p class="page-body">
+                  Lunatrix is not limited to a landing page. The same inference layer can serve bots, live user
+                  dashboards, analyst workflows, and internal trading operations without forking the intelligence into
+                  separate systems.
+                </p>
+
+                <div class="page-actions">
+                  <a class="button button-primary" href="/impact">Why it matters</a>
+                  <a class="button button-secondary" href="/resources">Integration paths</a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-head">
+              <span class="section-label">Primary use cases</span>
+              <h2 class="section-title">Built for teams that need signal delivery, not just a model demo.</h2>
+            </div>
+
+            <div class="value-grid">
+              <article class="info-card">
+                <h3>Bot integrators</h3>
+                <p>Pull published forecasts into execution logic, alerting engines, and rankers without rebuilding the model layer.</p>
+              </article>
+
+              <article class="info-card">
+                <h3>Signal publishers</h3>
+                <p>Expose the same calls on a public surface so users can inspect live ideas before building their own integrations.</p>
+              </article>
+
+              <article class="info-card">
+                <h3>Research desks</h3>
+                <p>Route the model output into internal market reviews, morning briefings, and post-trade validation loops.</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="split-grid">
+            <article class="code-panel">
+              <span class="section-label">Example consumption</span>
+              <h2 class="section-title">Signal calls can stay simple.</h2>
+              <p>Integrators should not need the frontend to be online before they can consume Lunatrix forecasts.</p>
+              <pre><code>fetch("http://127.0.0.1:8000/api/current-signals?action=actionable&limit=12")
+  .then((response) =&gt; response.json())
+  .then((payload) =&gt; {
+    console.log(payload.signals);
+  });</code></pre>
+            </article>
+
+            <div class="list-stack">
+              <article class="list-item">
+                <h3>Public signal boards</h3>
+                <p>Mirror the current forecast layer on the site so non-technical users can still benefit from the model.</p>
+              </article>
+
+              <article class="list-item">
+                <h3>Operator interfaces</h3>
+                <p>Use the backend as a stable surface for internal tools that need signal freshness without direct Python coupling.</p>
+              </article>
+
+              <article class="list-item">
+                <h3>Execution assistants</h3>
+                <p>Combine published signals with downstream risk or routing logic instead of collapsing everything into one service.</p>
+              </article>
+            </div>
+          </section>
+        </div>
+
+        <footer class="page-footer">
+          <span>Solutions page for Lunatrix.</span>
+
+          <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="/platform">Platform</a>
+            <a href="/resources">Resources</a>
+          </div>
+        </footer>
+      </div>
+    </main>
+  </body>
+</html>

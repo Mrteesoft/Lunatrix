@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lunatrix Platform | Standalone Signal Stack</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="page-platform">
+    <main class="page-stage">
+      <div class="hero-backdrop" aria-hidden="true">
+        <div class="hero-backdrop-layer hero-backdrop-base"></div>
+        <div class="hero-backdrop-layer hero-backdrop-echo"></div>
+        <div class="hero-backdrop-vignette"></div>
+        <div class="hero-backdrop-grain"></div>
+      </div>
+
+      <div class="page-shell">
+        <header class="site-header">
+          <a class="brand" href="/">Lunatrix</a>
+
+          <nav class="site-nav" aria-label="Primary">
+            <a class="is-active" href="/platform">Platform</a>
+            <a href="/solutions">Solutions</a>
+            <a href="/impact">Impact</a>
+            <a href="/resources">Resources</a>
+            <a href="/company">Company</a>
+          </nav>
+
+          <a class="top-cta" href="/resources">Get started</a>
+        </header>
+
+        <div class="page-main">
+          <section class="page-hero">
+            <div class="page-grid">
+              <div class="page-copy">
+                <p class="eyebrow">PLATFORM</p>
+                <h1>Three standalone services. One Lunatrix runtime.</h1>
+              </div>
+
+              <div class="page-detail">
+                <p class="page-lead">Separate the concerns. Keep the signal flow clean.</p>
+                <p class="page-body">
+                  The frontend runs on its own port, the backend gateway stays focused on API orchestration, and the
+                  model service handles inference independently. Each layer can evolve without pulling the others into
+                  the same runtime.
+                </p>
+
+                <div class="page-actions">
+                  <a class="button button-primary" href="/resources">Run locally</a>
+                  <a class="button button-secondary" href="/solutions">See usage paths</a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-head">
+              <span class="section-label">Standalone services</span>
+              <h2 class="section-title">A localhost architecture with clear responsibilities.</h2>
+              <p class="section-copy">The product shell, API layer, and ML runtime communicate over HTTP instead of sharing process state.</p>
+            </div>
+
+            <div class="card-grid home-rail">
+              <article class="info-card">
+                <h3>Frontend</h3>
+                <p>The Lunatrix landing and future product surfaces run independently and consume APIs through the gateway.</p>
+                <span class="inline-tag">127.0.0.1:4173</span>
+              </article>
+
+              <article class="info-card">
+                <h3>Backend gateway</h3>
+                <p>The NestJS layer proxies public routes, keeps integrations stable, and isolates the frontend from model details.</p>
+                <span class="inline-tag">127.0.0.1:8000</span>
+              </article>
+
+              <article class="info-card">
+                <h3>Model service</h3>
+                <p>The Python engine owns live inference, training outputs, and signal publication without needing the UI to be present.</p>
+                <span class="inline-tag">127.0.0.1:8100</span>
+              </article>
+            </div>
+          </section>
+
+          <section class="split-grid">
+            <article class="quote-card">
+              <blockquote>
+                “Lunatrix is built so the signal intelligence can outlive the landing page. The frontend is only one consumer.”
+              </blockquote>
+              <figcaption>Architecture principle</figcaption>
+            </article>
+
+            <div class="list-stack">
+              <article class="list-item">
+                <h3>Frontend -> Backend</h3>
+                <p>The standalone frontend proxies API calls through the gateway rather than reaching into the model directly.</p>
+              </article>
+
+              <article class="list-item">
+                <h3>Backend -> Model</h3>
+                <p>The backend keeps a stable contract for signal consumers while the Python service can continue evolving underneath.</p>
+              </article>
+
+              <article class="list-item">
+                <h3>Model -> Published outputs</h3>
+                <p>Fresh signals, artifacts, and live inference remain the model service’s responsibility, not the web shell’s.</p>
+              </article>
+            </div>
+          </section>
+        </div>
+
+        <footer class="page-footer">
+          <span>Platform page for Lunatrix.</span>
+
+          <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="/resources">Resources</a>
+            <a href="/company">Company</a>
+          </div>
+        </footer>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "crypto-signal-ml-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs --watch",
+    "start": "node server.mjs",
+    "build": "node server.mjs --build-only"
+  }
+}

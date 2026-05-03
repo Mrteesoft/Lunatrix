@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lunatrix Resources | Docs and Setup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="page-resources">
+    <main class="page-stage">
+      <div class="hero-backdrop" aria-hidden="true">
+        <div class="hero-backdrop-layer hero-backdrop-base"></div>
+        <div class="hero-backdrop-layer hero-backdrop-echo"></div>
+        <div class="hero-backdrop-vignette"></div>
+        <div class="hero-backdrop-grain"></div>
+      </div>
+
+      <div class="page-shell">
+        <header class="site-header">
+          <a class="brand" href="/">Lunatrix</a>
+
+          <nav class="site-nav" aria-label="Primary">
+            <a href="/platform">Platform</a>
+            <a href="/solutions">Solutions</a>
+            <a href="/impact">Impact</a>
+            <a class="is-active" href="/resources">Resources</a>
+            <a href="/company">Company</a>
+          </nav>
+
+          <a class="top-cta" href="/platform">Get started</a>
+        </header>
+
+        <div class="page-main">
+          <section class="page-hero">
+            <div class="page-grid">
+              <div class="page-copy">
+                <p class="eyebrow">RESOURCES</p>
+                <h1>Docs, routes, and local workflows for the Lunatrix stack.</h1>
+              </div>
+
+              <div class="page-detail">
+                <p class="page-lead">Start locally. Integrate cleanly. Extend carefully.</p>
+                <p class="page-body">
+                  The resources layer should make the product usable, not ornamental. Everything needed to run the
+                  frontend, backend, and model services locally should be easy to scan and easy to follow.
+                </p>
+
+                <div class="page-actions">
+                  <a class="button button-primary" href="/docs">Open API docs</a>
+                  <a class="button button-secondary" href="/openapi.json">Open schema</a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="value-grid">
+            <a class="resource-link" href="/docs">
+              <span class="resource-path">/docs</span>
+              <h3>Interactive API docs</h3>
+              <p>Inspect the backend gateway routes that are exposed to the frontend and downstream consumers.</p>
+            </a>
+
+            <a class="resource-link" href="/redoc">
+              <span class="resource-path">/redoc</span>
+              <h3>Reference documentation</h3>
+              <p>Use the Redoc view when you want the contract laid out like a product reference instead of a tester.</p>
+            </a>
+
+            <a class="resource-link" href="/openapi.json">
+              <span class="resource-path">/openapi.json</span>
+              <h3>OpenAPI schema</h3>
+              <p>Pull the raw schema directly when you need to generate clients or inspect the gateway surface programmatically.</p>
+            </a>
+          </section>
+
+          <section class="split-grid">
+            <article class="code-panel">
+              <span class="section-label">Local startup</span>
+              <h2 class="section-title">Run the services separately.</h2>
+              <p>Each Lunatrix layer is designed to start on its own port and talk to the others over localhost.</p>
+              <pre><code># model
+cd model-service
+python scripts/runAiEngine.py
+
+# backend
+cd backend-ts
+npm run dev
+
+# frontend
+cd frontend
+npm run dev</code></pre>
+            </article>
+
+            <div class="list-stack">
+              <article class="list-item">
+                <h3>Frontend</h3>
+                <p>The standalone frontend serves the Lunatrix pages and proxies API traffic through the backend gateway.</p>
+              </article>
+
+              <article class="list-item">
+                <h3>Backend</h3>
+                <p>The NestJS layer stays on `127.0.0.1:8000` and forwards model-facing work to the Python service.</p>
+              </article>
+
+              <article class="list-item">
+                <h3>Model</h3>
+                <p>The model service continues to own live inference, trained artifacts, and published signal outputs.</p>
+              </article>
+            </div>
+          </section>
+        </div>
+
+        <footer class="page-footer">
+          <span>Resources page for Lunatrix.</span>
+
+          <div class="footer-links">
+            <a href="/">Home</a>
+            <a href="/platform">Platform</a>
+            <a href="/company">Company</a>
+          </div>
+        </footer>
+      </div>
+    </main>
+  </body>
+</html>

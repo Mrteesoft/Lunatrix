@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lunatrix AI | Signal Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="page-ai">
+    <main class="ai-page-shell">
+      <section class="ai-chat-layout" aria-label="Lunatrix AI chat">
+        <aside class="ai-chat-sidebar">
+          <div class="ai-sidebar-header">
+            <a class="ai-sidebar-brand" href="/" aria-label="Lunatrix home">
+              <span class="pixel-logo" aria-hidden="true"></span>
+              <strong>Lunatrix</strong>
+            </a>
+            <button class="ai-icon-button" id="ai-new-chat" type="button" aria-label="New chat">+</button>
+          </div>
+
+          <div class="ai-session-panel">
+            <button class="ai-new-chat is-active" type="button">Market intelligence chat</button>
+            <label class="ai-product-field" for="ai-product-id">
+              <span>Market pair</span>
+              <select id="ai-product-id">
+                <option value="">Auto</option>
+                <option value="BTC-USD">BTC/USD</option>
+                <option value="ETH-USD">ETH/USD</option>
+                <option value="SOL-USD">SOL/USD</option>
+                <option value="LINK-USD">LINK/USD</option>
+                <option value="AVAX-USD">AVAX/USD</option>
+                <option value="ARB-USD">ARB/USD</option>
+              </select>
+            </label>
+            <label class="ai-refresh-toggle">
+              <input id="ai-force-refresh" type="checkbox" />
+              <span>Live context</span>
+            </label>
+          </div>
+
+          <div class="ai-prompt-list" aria-label="Example prompts">
+            <span>Prompts</span>
+            <button type="button">What is the strongest trade setup right now?</button>
+            <button type="button">Explain BTC/USD risk and key invalidation levels.</button>
+            <button type="button">Compare ETH and SOL momentum before entry.</button>
+          </div>
+
+          <div class="ai-sidebar-footer">
+            <a href="/resources">Contact desk</a>
+            <a href="/">Back to site</a>
+          </div>
+        </aside>
+
+        <section class="ai-chat-surface">
+          <div class="ai-chat-topbar">
+            <button class="ai-sidebar-toggle" type="button" aria-label="Open sidebar">&#9776;</button>
+            <strong id="ai-session-title">Lunatrix AI</strong>
+            <span class="ai-status-pill" id="ai-status">Ready</span>
+          </div>
+
+          <div class="ai-message-stream" id="ai-message-stream" aria-live="polite">
+            <article class="ai-message is-assistant">
+              <span class="ai-avatar">L</span>
+              <div class="ai-message-bubble">
+                <p>How can I help with the market today?</p>
+              </div>
+            </article>
+          </div>
+
+          <form class="ai-composer" id="ai-composer">
+            <textarea
+              id="ai-prompt"
+              name="message"
+              rows="1"
+              maxlength="4000"
+              placeholder="Prompt Lunatrix AI..."
+              autocomplete="off"
+            ></textarea>
+            <button class="ai-send-button" id="ai-send" type="submit" aria-label="Send prompt">
+              <span aria-hidden="true">&uarr;</span>
+            </button>
+          </form>
+          <p class="ai-composer-note">Lunatrix AI can make mistakes. Check important trading decisions.</p>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="/static/ai.js"></script>
+  </body>
+</html>

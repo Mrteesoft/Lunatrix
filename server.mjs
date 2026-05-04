@@ -56,11 +56,11 @@ async function copyStaticBuild() {
 
   await cp(join(frontendDir, "index.html"), join(staticBuildDir, "index.html"));
 
-  for (const directoryName of ["company", "impact", "platform", "resources", "solutions"]) {
+  for (const directoryName of ["ai", "company", "impact", "platform", "resources", "solutions"]) {
     await cp(join(frontendDir, directoryName), join(staticBuildDir, directoryName), { recursive: true });
   }
 
-  for (const fileName of ["api-base.js", "app.js", "home.js", "styles.css"]) {
+  for (const fileName of ["ai.js", "api-base.js", "app.js", "home.js", "styles.css"]) {
     await cp(join(frontendDir, fileName), join(staticBuildDir, "static", fileName));
   }
 
@@ -107,7 +107,7 @@ async function resolveStaticPath(requestPathname) {
   const directoryIndexPath = resolve(frontendDir, relativeRequestPath, "index.html");
   const htmlPath = resolve(frontendDir, `${relativeRequestPath}.html`);
 
-  for (const candidatePath of [directPath, directoryIndexPath, htmlPath]) {
+  for (const candidatePath of [directoryIndexPath, directPath, htmlPath]) {
     try {
       await access(candidatePath);
       return candidatePath;

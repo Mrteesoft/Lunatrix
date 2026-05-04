@@ -1,3 +1,6 @@
+const productionBackendBaseUrl = "https://api.lunatrixx.xyz";
+const localHostnames = new Set(["localhost", "127.0.0.1", "::1"]);
+
 function resolveConfiguredBackendBaseUrl() {
   const configuredBaseUrl = document.body?.dataset?.backendBaseUrl?.trim();
   if (!configuredBaseUrl) {
@@ -14,6 +17,10 @@ export function resolveBackendBaseUrl() {
   }
 
   const currentUrl = new URL(window.location.href);
+  if (!localHostnames.has(currentUrl.hostname) && currentUrl.hostname !== "api.lunatrixx.xyz") {
+    return new URL(productionBackendBaseUrl);
+  }
+
   if (currentUrl.port === "4173") {
     currentUrl.port = "8000";
   }

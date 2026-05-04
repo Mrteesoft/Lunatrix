@@ -241,20 +241,24 @@ async function sendPrompt(message) {
       forceRefresh,
     };
 
-    setStatus("Queued", "busy");
+    setStatus("Reading", "busy");
     let payload;
     try {
-      payload = await sendPromptWithJob(requestBody);
-    } catch (error) {
-      if (error?.status !== 503) {
-        throw error;
-      }
-      setStatus("Reading", "busy");
       payload = await sendPromptDirect(state.sessionId, {
         message,
         productId: productId || undefined,
         forceRefresh,
       });
+    } catch (error) {
+      const canTryAsyncJob =
+        error?.status === 503 ||
+        error?.status === 504 ||
+        /timed out|timeout|unavailable/i.test(error?.message || "");
+      if (!canTryAsyncJob) {
+        throw error;
+      }
+      setStatus("Queued", "busy");
+      payload = await sendPromptWithJob(requestBody);
     }
 
     const answer = extractAssistantAnswer(payload) || "I received the prompt, but the assistant returned no text.";

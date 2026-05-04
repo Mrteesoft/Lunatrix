@@ -20,9 +20,9 @@ const state = {
   sessionCount: 1,
 };
 
-const chatJobPollIntervalMs = 1500;
-const chatJobTimeoutMs = 180000;
-const directChatTimeoutMs = 90000;
+const directChatTimeoutMs = 180000;
+const assistantTypingCharactersPerFrame = 3;
+const assistantTypingFrameMs = 12;
 
 function setSidebarOpen(isOpen) {
   if (!(sidebar instanceof HTMLElement) || !(sidebarToggle instanceof HTMLButtonElement)) {
@@ -115,6 +115,22 @@ function updateHistoryTitle(title) {
   }
 }
 
+function renderMessages(messages) {
+  if (!(messageStream instanceof HTMLElement)) {
+    return;
+  }
+
+  messageStream.innerHTML = "";
+  const visibleMessages = Array.isArray(messages) ? messages : [];
+  visibleMessages.forEach((message) => {
+    appendMessage(message?.role === "user" ? "user" : "assistant", message?.content || "");
+  });
+
+  if (!visibleMessages.length) {
+    appendMessage("assistant", "Starting model chat session...");
+  }
+}
+
 function appendMessage(role, content, options = {}) {
   if (!(messageStream instanceof HTMLElement)) {
     return null;
@@ -142,6 +158,26 @@ function appendMessage(role, content, options = {}) {
   return article;
 }
 
+async function typeAssistantMessage(messageElement, content) {
+  const bubble = messageElement?.querySelector(".ai-message-bubble");
+  if (!(messageElement instanceof HTMLElement) || !(bubble instanceof HTMLElement)) {
+    return;
+  }
+
+  messageElement.classList.add("is-streaming");
+  bubble.textContent = "";
+
+  for (let index = 0; index < content.length; index += assistantTypingCharactersPerFrame) {
+    bubble.textContent += content.slice(index, index + assistantTypingCharactersPerFrame);
+    scrollToLatest();
+    await sleep(assistantTypingFrameMs);
+  }
+
+  messageElement.classList.remove("is-streaming");
+  bubble.innerHTML = formatMessageText(content);
+  scrollToLatest();
+}
+
 function resetComposerHeight() {
   if (!(promptInput instanceof HTMLTextAreaElement)) {
     return;
@@ -162,36 +198,8 @@ async function createSession() {
     sessionTitle.textContent = payload.session.title;
     updateHistoryTitle(payload.session.title);
   }
-}
 
-async function waitForChatJob(jobId) {
-  const startedAt = Date.now();
-
-  while ((Date.now() - startedAt) < chatJobTimeoutMs) {
-    const job = await fetchJson(`/api/jobs/${encodeURIComponent(jobId)}`);
-
-    if (job.status === "completed") {
-      return fetchJson(`/api/jobs/${encodeURIComponent(jobId)}/result`);
-    }
-
-    if (["failed", "cancelled", "timed_out"].includes(job.status)) {
-      throw new Error(job.errorReason || `Chat job ended with status ${job.status}.`);
-    }
-
-    setStatus(job.status === "processing" ? "Reading" : "Queued", "busy");
-    await sleep(chatJobPollIntervalMs);
-  }
-
-  throw new Error("The assistant took too long to respond.");
-}
-
-async function sendPromptWithJob(body) {
-  const submission = await postJson("/api/jobs/chat-analysis", body);
-  if (!submission?.jobId) {
-    throw new Error("Backend did not return a chat job id.");
-  }
-
-  return waitForChatJob(submission.jobId);
+  renderMessages(payload?.messages || []);
 }
 
 async function sendPromptDirect(sessionId, body) {
@@ -234,39 +242,19 @@ async function sendPrompt(message) {
 
     const productId = productSelect instanceof HTMLSelectElement ? productSelect.value : "";
     const forceRefresh = forceRefreshInput instanceof HTMLInputElement ? forceRefreshInput.checked : false;
-    const requestBody = {
-      sessionId: state.sessionId,
+    setStatus("Reading", "busy");
+    const payload = await sendPromptDirect(state.sessionId, {
       message,
       productId: productId || undefined,
       forceRefresh,
-    };
-
-    setStatus("Reading", "busy");
-    let payload;
-    try {
-      payload = await sendPromptDirect(state.sessionId, {
-        message,
-        productId: productId || undefined,
-        forceRefresh,
-      });
-    } catch (error) {
-      const canTryAsyncJob =
-        error?.status === 503 ||
-        error?.status === 504 ||
-        /timed out|timeout|unavailable/i.test(error?.message || "");
-      if (!canTryAsyncJob) {
-        throw error;
-      }
-      setStatus("Queued", "busy");
-      payload = await sendPromptWithJob(requestBody);
-    }
+    });
 
     const answer = extractAssistantAnswer(payload) || "I received the prompt, but the assistant returned no text.";
 
     pendingMessage?.classList.remove("is-pending");
-    const bubble = pendingMessage?.querySelector(".ai-message-bubble");
-    if (bubble instanceof HTMLElement) {
-      bubble.innerHTML = formatMessageText(answer);
+    setStatus("Typing", "busy");
+    if (pendingMessage instanceof HTMLElement) {
+      await typeAssistantMessage(pendingMessage, answer);
     }
     setStatus("Ready", "ready");
   } catch (error) {
@@ -283,6 +271,7 @@ async function sendPrompt(message) {
     if (sendButton instanceof HTMLButtonElement) {
       sendButton.disabled = false;
     }
+    promptInput?.focus();
     scrollToLatest();
   }
 }
@@ -337,12 +326,20 @@ if (newChatButton instanceof HTMLButtonElement && messageStream instanceof HTMLE
       sessionTitle.textContent = "Lunatrix AI";
     }
     updateHistoryTitle(nextTitle);
-    messageStream.innerHTML = "";
-    appendMessage(
-      "assistant",
-      "How can I help with the market today?",
-    );
-    setStatus("Ready", "ready");
+    setStatus("Starting", "busy");
+    void createSession()
+      .then(() => {
+        setStatus("Ready", "ready");
+      })
+      .catch((error) => {
+        renderMessages([
+          {
+            role: "assistant",
+            content: error instanceof Error ? error.message : "Could not start model chat session.",
+          },
+        ]);
+        setStatus("Offline", "error");
+      });
   });
 }
 
@@ -355,3 +352,18 @@ promptButtons.forEach((button) => {
     }
   });
 });
+
+setStatus("Starting", "busy");
+void createSession()
+  .then(() => {
+    setStatus("Ready", "ready");
+  })
+  .catch((error) => {
+    renderMessages([
+      {
+        role: "assistant",
+        content: error instanceof Error ? error.message : "Could not start model chat session.",
+      },
+    ]);
+    setStatus("Offline", "error");
+  });

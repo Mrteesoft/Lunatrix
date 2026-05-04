@@ -5645,6 +5645,22 @@ body:not(.is-scrolled).mistral-signal-home .mistral-header .mistral-actions a sp
   line-height: 1.65;
 }
 
+.page-ai .ai-message.is-streaming .ai-message-bubble {
+  white-space: pre-wrap;
+}
+
+.page-ai .ai-message.is-streaming .ai-message-bubble::after {
+  content: "";
+  display: inline-block;
+  width: 0.58em;
+  height: 1.1em;
+  margin-left: 2px;
+  border-radius: 999px;
+  background: rgba(236, 236, 241, 0.72);
+  vertical-align: -0.18em;
+  animation: ai-cursor-blink 900ms steps(2, start) infinite;
+}
+
 .page-ai .ai-message.is-user .ai-message-bubble {
   justify-self: end;
   max-width: min(100%, 560px);
@@ -5740,6 +5756,18 @@ body:not(.is-scrolled).mistral-signal-home .mistral-header .mistral-actions a sp
   .page-ai .ai-composer {
     width: calc(100% - 24px);
     bottom: 36px;
+  }
+}
+
+@keyframes ai-cursor-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  46%,
+  100% {
+    opacity: 0;
   }
 }
 

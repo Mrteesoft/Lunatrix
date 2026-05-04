@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { access, cp, mkdir, rm, stat } from "node:fs/promises";
-import { createReadStream, watch, writeFileSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, watch, writeFileSync } from "node:fs";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
@@ -11,10 +11,52 @@ const sass = require("sass");
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const frontendDir = dirname(currentFilePath);
+
+function loadEnvFile(envPath) {
+  if (!existsSync(envPath)) {
+    return;
+  }
+
+  const rawFile = readFileSync(envPath, "utf8");
+  for (const rawLine of rawFile.split(/\r?\n/u)) {
+    let line = rawLine.trim();
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    if (line.startsWith("export ")) {
+      line = line.slice("export ".length).trim();
+    }
+
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    let value = line.slice(separatorIndex + 1).trim();
+    if (!key || process.env[key] !== undefined) {
+      continue;
+    }
+
+    if (value.length >= 2 && value[0] === value[value.length - 1] && [`"`, `'`].includes(value[0] ?? "")) {
+      value = value.slice(1, -1);
+    }
+
+    process.env[key] = value;
+  }
+}
+
+loadEnvFile(join(frontendDir, ".env"));
+
 const staticBuildDir = join(frontendDir, "dist");
 const host = process.env.FRONTEND_HOST || "127.0.0.1";
 const port = Number.parseInt(process.env.FRONTEND_PORT || "4173", 10);
 const backendBaseUrl = new URL(process.env.FRONTEND_API_PROXY_BASE_URL || "http://127.0.0.1:8000");
+const browserBackendBaseUrl =
+  process.env.FRONTEND_BACKEND_BASE_URL ||
+  process.env.FRONTEND_PUBLIC_BACKEND_BASE_URL ||
+  "";
 const shouldWatch = process.argv.includes("--watch");
 const buildOnly = process.argv.includes("--build-only");
 
@@ -50,6 +92,19 @@ function compileStyles() {
   process.stdout.write(`[frontend] built styles.css from styles.scss\n`);
 }
 
+function writeRuntimeConfig() {
+  const runtimeConfigPath = join(frontendDir, "runtime-config.js");
+  const runtimeConfig = {
+    backendBaseUrl: browserBackendBaseUrl.trim(),
+  };
+
+  writeFileSync(
+    runtimeConfigPath,
+    `window.LUNATRIX_CONFIG = ${JSON.stringify(runtimeConfig, null, 2)};\n`,
+  );
+  process.stdout.write(`[frontend] wrote runtime-config.js\n`);
+}
+
 async function copyStaticBuild() {
   await rm(staticBuildDir, { force: true, recursive: true });
   await mkdir(join(staticBuildDir, "static"), { recursive: true });
@@ -60,7 +115,7 @@ async function copyStaticBuild() {
     await cp(join(frontendDir, directoryName), join(staticBuildDir, directoryName), { recursive: true });
   }
 
-  for (const fileName of ["ai.js", "api-base.js", "app.js", "home.js", "styles.css"]) {
+  for (const fileName of ["ai.js", "api-base.js", "app.js", "home.js", "runtime-config.js", "styles.css"]) {
     await cp(join(frontendDir, fileName), join(staticBuildDir, "static", fileName));
   }
 
@@ -228,6 +283,7 @@ async function handleRequest(request, response) {
 async function main() {
   try {
     compileStyles();
+    writeRuntimeConfig();
   } catch (error) {
     process.stderr.write(
       `[frontend] failed to build styles: ${error instanceof Error ? error.message : String(error)}\n`,

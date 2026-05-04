@@ -216,19 +216,22 @@
                   <div class="hero-live-chart-placeholder">Loading TradingView chart...</div>
                 </div>
               </div>
-
-              <div class="live-signal-bottomline">
-                <p class="live-signal-summary" id="hero-live-summary">Connect the backend websocket to stream the latest signal surface here.</p>
-                <div class="live-signal-status-row">
-                  <span class="live-connection-dot is-pending" id="hero-live-connection"></span>
-                  <span id="hero-live-timestamp">Waiting for live snapshot</span>
-                </div>
-              </div>
-
-              <div class="live-symbol-strip" id="hero-symbol-strip" aria-label="Tracked symbols"></div>
             </section>
           </div>
         </article>
+      </section>
+
+      <section class="hold-monitor-section" aria-label="Monitored hold coins">
+        <div class="section-title-row hold-monitor-title-row">
+          <div>
+            <span class="section-kicker">Model watchlist</span>
+            <h2>Hold coins under review.</h2>
+          </div>
+          <p>BUY setups graduate into the trade widget. HOLD coins remain monitored here until the model sees a stronger directional edge.</p>
+        </div>
+        <div class="hold-monitor-grid" id="hold-monitor-grid">
+          <article class="hold-monitor-empty">Waiting for monitored HOLD signals from the backend.</article>
+        </div>
       </section>
 
       <section class="platform-section" id="research">

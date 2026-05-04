@@ -8,13 +8,22 @@ const liveSummary = document.querySelector("#hero-live-summary");
 const liveConnection = document.querySelector("#hero-live-connection");
 const liveTimestamp = document.querySelector("#hero-live-timestamp");
 const liveChart = document.querySelector("#hero-live-chart");
-const liveSymbolStrip = document.querySelector("#hero-symbol-strip");
+const holdMonitorGrid = document.querySelector("#hold-monitor-grid");
 const heroCanvas = document.querySelector("#hero-canvas");
 const header = document.querySelector(".mistral-header");
 const menuToggle = document.querySelector(".mistral-menu-toggle");
 
 const reconnectDelayMs = 4000;
 const tradingViewScriptUrl = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+const placeholderProductIds = new Set(["ASSET-USD", "SIGNAL-USD"]);
+const tradingViewSymbolOverrides = new Map([
+  ["BTC-USD", "COINBASE:BTCUSD"],
+  ["ETH-USD", "COINBASE:ETHUSD"],
+  ["SOL-USD", "COINBASE:SOLUSD"],
+  ["LINK-USD", "COINBASE:LINKUSD"],
+  ["AVAX-USD", "COINBASE:AVAXUSD"],
+  ["ARB-USD", "COINBASE:ARBUSD"],
+]);
 
 const state = {
   activeSocket: null,
@@ -274,27 +283,52 @@ function setPrimaryAction(actionValue, signalName) {
   liveAction.textContent = signalName || sentenceCase(normalizedAction);
 }
 
+function normalizeProductId(signal) {
+  return String(signal?.productId || signal?.pairSymbol || "").toUpperCase().trim();
+}
+
+function hasUsableTradingViewProduct(signal) {
+  const productId = normalizeProductId(signal);
+  return Boolean(productId) && !placeholderProductIds.has(productId) && /^([A-Z0-9]+)-([A-Z0-9]+)$/u.test(productId);
+}
+
+function isBuySignal(signal) {
+  const action = String(signal?.spotAction || "").trim().toLowerCase();
+  const signalName = String(signal?.signalName || signal?.signal_name || "").trim().toUpperCase();
+  return action === "buy" || signalName === "BUY";
+}
+
+function isHoldSignal(signal) {
+  const action = String(signal?.spotAction || "").trim().toLowerCase();
+  const signalName = String(signal?.signalName || signal?.signal_name || "").trim().toUpperCase();
+  return action === "hold" || action === "wait" || signalName === "HOLD";
+}
+
 function buildTradingViewSymbol(signal) {
-  const rawProductId = String(signal?.productId || signal?.pairSymbol || "").toUpperCase().trim();
-  const matchedPair = rawProductId.match(/^([A-Z0-9]+)-([A-Z0-9]+)$/u);
-  if (!matchedPair) {
-    return "COINBASE:BTCUSD";
+  const rawProductId = normalizeProductId(signal);
+  const overrideSymbol = tradingViewSymbolOverrides.get(rawProductId);
+  if (overrideSymbol) {
+    return overrideSymbol;
   }
 
-  return `COINBASE:${matchedPair[1]}${matchedPair[2]}`;
+  return "COINBASE:BTCUSD";
 }
 
 function resolveActiveSignal(snapshot) {
   const signals = Array.isArray(snapshot?.signals) ? snapshot.signals : [];
   const primarySignal = snapshot?.primarySignal || signals[0] || null;
+  const buySignal =
+    signals.find((signal) => isBuySignal(signal) && hasUsableTradingViewProduct(signal)) ||
+    (isBuySignal(primarySignal) && hasUsableTradingViewProduct(primarySignal) ? primarySignal : null);
+  const fallbackSignal = buySignal || signals.find(hasUsableTradingViewProduct) || primarySignal;
 
   if (!primarySignal) {
     return null;
   }
 
   if (!state.selectedProductId) {
-    state.selectedProductId = primarySignal.productId;
-    return primarySignal;
+    state.selectedProductId = fallbackSignal?.productId || primarySignal.productId;
+    return fallbackSignal || primarySignal;
   }
 
   if (primarySignal.productId === state.selectedProductId) {
@@ -306,8 +340,8 @@ function resolveActiveSignal(snapshot) {
     return matchedSignal;
   }
 
-  state.selectedProductId = primarySignal.productId;
-  return primarySignal;
+  state.selectedProductId = fallbackSignal?.productId || primarySignal.productId;
+  return fallbackSignal || primarySignal;
 }
 
 function renderTradingViewWidget(signal) {
@@ -325,15 +359,6 @@ function renderTradingViewWidget(signal) {
   liveChart.innerHTML = `
     <div class="tradingview-widget-container hero-tradingview-widget">
       <div class="tradingview-widget-container__widget"></div>
-      <div class="tradingview-widget-copyright">
-        <a
-          href="https://www.tradingview.com/"
-          rel="noopener nofollow"
-          target="_blank"
-        >
-          Track all markets on TradingView
-        </a>
-      </div>
     </div>
   `;
 
@@ -366,44 +391,81 @@ function renderTradingViewWidget(signal) {
   widgetHost.append(widgetScript);
 }
 
-function renderSignalStrip(snapshot, activeSignal) {
-  if (!liveSymbolStrip) {
+function renderHoldMonitors(signals) {
+  if (!(holdMonitorGrid instanceof HTMLElement)) {
     return;
   }
 
-  const signals = Array.isArray(snapshot?.signals) ? snapshot.signals : [];
-  const visibleSignals = signals.length > 0 ? signals.slice(0, 6) : activeSignal ? [activeSignal] : [];
+  const holdSignals = signals
+    .filter((signal) => isHoldSignal(signal) && normalizeProductId(signal) && !placeholderProductIds.has(normalizeProductId(signal)))
+    .slice(0, 18);
 
-  if (visibleSignals.length === 0) {
-    liveSymbolStrip.innerHTML = '<span class="live-symbol-chip is-empty">No live pairs loaded</span>';
+  if (!holdSignals.length) {
+    holdMonitorGrid.innerHTML = '<article class="hold-monitor-empty">No HOLD coins are currently published by the model.</article>';
     return;
   }
 
-  liveSymbolStrip.innerHTML = visibleSignals
+  holdMonitorGrid.innerHTML = holdSignals
     .map((signal) => {
-      const normalizedAction = String(signal.spotAction || "wait").replaceAll("_", "-").toLowerCase();
-      const classes = ["live-symbol-chip", `is-${normalizedAction}`];
-      if (signal.productId === activeSignal?.productId) {
-        classes.push("is-active");
-      }
+      const productId = signal.productId || signal.pairSymbol || "Unknown";
+      const confidence = formatPercent(signal.confidence);
+      const price = formatPrice(signal.close);
+      const summary =
+        signal.brainSummary ||
+        signal.reasonSummary ||
+        signal.explanationSummary ||
+        "Monitoring until the model sees a stronger directional edge.";
 
       return `
-        <button
-          class="${classes.join(" ")}"
-          data-product-id="${escapeHtml(signal.productId)}"
-          type="button"
-        >
-          <strong>${escapeHtml(signal.symbol || signal.productId || "Signal")}</strong>
-          <small>${escapeHtml(signal.signalName || sentenceCase(normalizedAction))}</small>
-        </button>
+        <article class="hold-monitor-card">
+          <div class="hold-monitor-card-top">
+            <div>
+              <strong>${escapeHtml(productId)}</strong>
+              <span>${escapeHtml(signal.symbol || signal.signalName || "HOLD")}</span>
+            </div>
+            <span class="hold-monitor-pill">Hold</span>
+          </div>
+          <p>${escapeHtml(summary)}</p>
+          <div class="hold-monitor-metrics">
+            <span><small>Confidence</small>${confidence}</span>
+            <span><small>Last price</small>${price}</span>
+          </div>
+        </article>
       `;
     })
     .join("");
 }
 
+async function loadHoldMonitorsFromApi() {
+  if (!(holdMonitorGrid instanceof HTMLElement)) {
+    return;
+  }
+
+  try {
+    for (const actionName of ["hold", "wait"]) {
+      const response = await fetch(buildBackendUrl(`/api/current-signals?action=${actionName}&limit=24`), {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        continue;
+      }
+
+      const payload = await response.json();
+      const signals = Array.isArray(payload?.signals) ? payload.signals : [];
+      if (signals.length > 0) {
+        renderHoldMonitors(signals);
+        return;
+      }
+    }
+  } catch {
+    // The websocket/live snapshot render remains the fallback.
+  }
+}
+
 function renderSnapshot(snapshot) {
   state.snapshot = snapshot;
   const activeSignal = resolveActiveSignal(snapshot);
+  renderHoldMonitors(Array.isArray(snapshot?.signals) ? snapshot.signals : []);
 
   if (!activeSignal) {
     setConnectionState("offline", "No public signal available");
@@ -441,7 +503,6 @@ function renderSnapshot(snapshot) {
 
   setConnectionState("live", `Live snapshot ${formatDate(snapshot?.generatedAt || activeSignal.timestamp)}`);
   renderTradingViewWidget(activeSignal);
-  renderSignalStrip(snapshot, activeSignal);
 }
 
 async function loadHttpFallback() {
@@ -476,9 +537,6 @@ async function loadHttpFallback() {
     }
     if (liveChart) {
       liveChart.innerHTML = '<div class="hero-live-chart-placeholder">TradingView chart unavailable</div>';
-    }
-    if (liveSymbolStrip) {
-      liveSymbolStrip.innerHTML = '<span class="live-symbol-chip is-empty">Backend gateway unavailable</span>';
     }
   }
 }
@@ -545,19 +603,5 @@ function connectLiveSignalStream() {
   });
 }
 
-if (liveSymbolStrip) {
-  liveSymbolStrip.addEventListener("click", (event) => {
-    const targetButton = event.target instanceof Element ? event.target.closest("[data-product-id]") : null;
-    const nextProductId = targetButton?.getAttribute("data-product-id");
-    if (!nextProductId) {
-      return;
-    }
-
-    state.selectedProductId = nextProductId;
-    if (state.snapshot) {
-      renderSnapshot(state.snapshot);
-    }
-  });
-}
-
 connectLiveSignalStream();
+void loadHoldMonitorsFromApi();

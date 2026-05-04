@@ -19,13 +19,18 @@
           <div class="ai-sidebar-header">
             <a class="ai-sidebar-brand" href="/" aria-label="Lunatrix home">
               <span class="pixel-logo" aria-hidden="true"></span>
-              <strong>Lunatrix</strong>
+              <span>
+                <strong>Lunatrix</strong>
+                <small>Signal desk</small>
+              </span>
             </a>
             <button class="ai-icon-button" id="ai-new-chat" type="button" aria-label="New chat">+</button>
           </div>
 
           <div class="ai-session-panel">
-            <button class="ai-new-chat is-active" type="button">Market intelligence chat</button>
+            <button class="ai-new-chat is-active" type="button">
+              <span>Market intelligence chat</span>
+            </button>
             <label class="ai-product-field" for="ai-product-id">
               <span>Market pair</span>
               <select id="ai-product-id">
@@ -44,11 +49,12 @@
             </label>
           </div>
 
-          <div class="ai-prompt-list" aria-label="Example prompts">
-            <span>Prompts</span>
-            <button type="button">What is the strongest trade setup right now?</button>
-            <button type="button">Explain BTC/USD risk and key invalidation levels.</button>
-            <button type="button">Compare ETH and SOL momentum before entry.</button>
+          <div class="ai-history-list" aria-label="Chat history">
+            <span>History</span>
+            <button class="is-active" type="button">
+              <strong>Market intelligence chat</strong>
+              <small>Current session</small>
+            </button>
           </div>
 
           <div class="ai-sidebar-footer">
@@ -60,15 +66,22 @@
         <section class="ai-chat-surface">
           <div class="ai-chat-topbar">
             <button class="ai-sidebar-toggle" type="button" aria-label="Open sidebar">&#9776;</button>
-            <strong id="ai-session-title">Lunatrix AI</strong>
-            <span class="ai-status-pill" id="ai-status">Ready</span>
+            <div class="ai-session-heading">
+              <strong id="ai-session-title">Lunatrix AI</strong>
+              <span>Live market context and signal reasoning</span>
+            </div>
+            <div class="ai-topbar-meta" aria-label="Assistant status">
+              <span>Crypto</span>
+              <span>Risk-aware</span>
+              <span class="ai-status-pill" id="ai-status">Ready</span>
+            </div>
           </div>
 
           <div class="ai-message-stream" id="ai-message-stream" aria-live="polite">
             <article class="ai-message is-assistant">
               <span class="ai-avatar">L</span>
               <div class="ai-message-bubble">
-                <p>How can I help with the market today?</p>
+                <p>Ask for a live setup, invalidation level, risk read, or comparison across tracked markets.</p>
               </div>
             </article>
           </div>

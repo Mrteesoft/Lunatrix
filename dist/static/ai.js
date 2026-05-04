@@ -4,6 +4,7 @@ const sidebar = document.querySelector(".ai-chat-sidebar");
 const sidebarToggle = document.querySelector(".ai-sidebar-toggle");
 const newChatButton = document.querySelector("#ai-new-chat");
 const promptButtons = document.querySelectorAll(".ai-prompt-list button");
+const historyList = document.querySelector(".ai-history-list");
 const composer = document.querySelector("#ai-composer");
 const promptInput = document.querySelector("#ai-prompt");
 const messageStream = document.querySelector("#ai-message-stream");
@@ -16,7 +17,12 @@ const sendButton = document.querySelector("#ai-send");
 const state = {
   sessionId: null,
   isSending: false,
+  sessionCount: 1,
 };
+
+const chatJobPollIntervalMs = 1500;
+const chatJobTimeoutMs = 180000;
+const directChatTimeoutMs = 90000;
 
 function setSidebarOpen(isOpen) {
   if (!(sidebar instanceof HTMLElement) || !(sidebarToggle instanceof HTMLButtonElement)) {
@@ -60,6 +66,55 @@ function scrollToLatest() {
   }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+async function fetchJson(url, options = {}) {
+  const response = await fetch(buildBackendUrl(url), options);
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message = payload?.message || payload?.detail || `${response.status} ${response.statusText}`;
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+
+  return payload;
+}
+
+async function postJson(url, body, options = {}) {
+  return fetchJson(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  });
+}
+
+function extractAssistantAnswer(payload) {
+  return (
+    payload?.chatResponse?.assistantMessage?.content ||
+    payload?.chatResponse?.messages?.findLast?.((item) => item?.role === "assistant")?.content ||
+    payload?.assistantMessage?.content ||
+    payload?.messages?.findLast?.((item) => item?.role === "assistant")?.content ||
+    ""
+  );
+}
+
+function updateHistoryTitle(title) {
+  const activeHistoryButton = historyList?.querySelector("button.is-active strong");
+  if (activeHistoryButton instanceof HTMLElement) {
+    activeHistoryButton.textContent = title;
+  }
+}
+
 function appendMessage(role, content, options = {}) {
   if (!(messageStream instanceof HTMLElement)) {
     return null;
@@ -97,20 +152,7 @@ function resetComposerHeight() {
 }
 
 async function createSession() {
-  const response = await fetch(buildBackendUrl("/api/chat/sessions"), {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ title: "Lunatrix AI chat" }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Session failed: ${response.status} ${response.statusText}`);
-  }
-
-  const payload = await response.json();
+  const payload = await postJson("/api/chat/sessions", { title: "Lunatrix AI chat" });
   state.sessionId = payload?.session?.sessionId || payload?.session?.id || null;
   if (!state.sessionId) {
     throw new Error("Backend did not return a chat session id.");
@@ -118,6 +160,57 @@ async function createSession() {
 
   if (sessionTitle instanceof HTMLElement && payload?.session?.title) {
     sessionTitle.textContent = payload.session.title;
+    updateHistoryTitle(payload.session.title);
+  }
+}
+
+async function waitForChatJob(jobId) {
+  const startedAt = Date.now();
+
+  while ((Date.now() - startedAt) < chatJobTimeoutMs) {
+    const job = await fetchJson(`/api/jobs/${encodeURIComponent(jobId)}`);
+
+    if (job.status === "completed") {
+      return fetchJson(`/api/jobs/${encodeURIComponent(jobId)}/result`);
+    }
+
+    if (["failed", "cancelled", "timed_out"].includes(job.status)) {
+      throw new Error(job.errorReason || `Chat job ended with status ${job.status}.`);
+    }
+
+    setStatus(job.status === "processing" ? "Reading" : "Queued", "busy");
+    await sleep(chatJobPollIntervalMs);
+  }
+
+  throw new Error("The assistant took too long to respond.");
+}
+
+async function sendPromptWithJob(body) {
+  const submission = await postJson("/api/jobs/chat-analysis", body);
+  if (!submission?.jobId) {
+    throw new Error("Backend did not return a chat job id.");
+  }
+
+  return waitForChatJob(submission.jobId);
+}
+
+async function sendPromptDirect(sessionId, body) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => {
+    controller.abort();
+  }, directChatTimeoutMs);
+
+  try {
+    return await postJson(`/api/chat/sessions/${encodeURIComponent(sessionId)}/messages`, body, {
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("The assistant timed out while reading model context.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
@@ -141,28 +234,30 @@ async function sendPrompt(message) {
 
     const productId = productSelect instanceof HTMLSelectElement ? productSelect.value : "";
     const forceRefresh = forceRefreshInput instanceof HTMLInputElement ? forceRefreshInput.checked : false;
-    const response = await fetch(buildBackendUrl(`/api/chat/sessions/${encodeURIComponent(state.sessionId)}/messages`), {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const requestBody = {
+      sessionId: state.sessionId,
+      message,
+      productId: productId || undefined,
+      forceRefresh,
+    };
+
+    setStatus("Queued", "busy");
+    let payload;
+    try {
+      payload = await sendPromptWithJob(requestBody);
+    } catch (error) {
+      if (error?.status !== 503) {
+        throw error;
+      }
+      setStatus("Reading", "busy");
+      payload = await sendPromptDirect(state.sessionId, {
         message,
         productId: productId || undefined,
         forceRefresh,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Assistant failed: ${response.status} ${response.statusText}`);
+      });
     }
 
-    const payload = await response.json();
-    const answer =
-      payload?.assistantMessage?.content ||
-      payload?.messages?.findLast?.((item) => item?.role === "assistant")?.content ||
-      "I received the prompt, but the assistant returned no text.";
+    const answer = extractAssistantAnswer(payload) || "I received the prompt, but the assistant returned no text.";
 
     pendingMessage?.classList.remove("is-pending");
     const bubble = pendingMessage?.querySelector(".ai-message-bubble");
@@ -232,6 +327,12 @@ if (composer instanceof HTMLFormElement && promptInput instanceof HTMLTextAreaEl
 if (newChatButton instanceof HTMLButtonElement && messageStream instanceof HTMLElement) {
   newChatButton.addEventListener("click", () => {
     state.sessionId = null;
+    state.sessionCount += 1;
+    const nextTitle = `Market intelligence chat ${state.sessionCount}`;
+    if (sessionTitle instanceof HTMLElement) {
+      sessionTitle.textContent = "Lunatrix AI";
+    }
+    updateHistoryTitle(nextTitle);
     messageStream.innerHTML = "";
     appendMessage(
       "assistant",

@@ -212,9 +212,22 @@ async function readRequestBody(request) {
 async function proxyRequest(request, response, pathname, search) {
   const targetUrl = new URL(`${pathname}${search}`, backendBaseUrl);
   const requestHeaders = new Headers();
+  const skippedProxyHeaders = new Set([
+    "host",
+    "connection",
+    "content-length",
+    "transfer-encoding",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "upgrade",
+    "expect",
+  ]);
 
   for (const [headerName, headerValue] of Object.entries(request.headers)) {
-    if (headerValue === undefined || headerName.toLowerCase() === "host") {
+    if (headerValue === undefined || skippedProxyHeaders.has(headerName.toLowerCase())) {
       continue;
     }
 
@@ -228,11 +241,15 @@ async function proxyRequest(request, response, pathname, search) {
     requestHeaders.set(headerName, headerValue);
   }
 
+  const requestBody = request.method === "GET" || request.method === "HEAD" ? undefined : await readRequestBody(request);
   const requestInit = {
     method: request.method,
     headers: requestHeaders,
-    body: request.method === "GET" || request.method === "HEAD" ? undefined : await readRequestBody(request),
+    body: requestBody,
   };
+  if (requestBody !== undefined) {
+    requestInit.duplex = "half";
+  }
 
   const upstreamResponse = await fetch(targetUrl, requestInit);
   const responseHeaders = {};

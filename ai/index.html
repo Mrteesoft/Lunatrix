@@ -49,6 +49,21 @@
             </label>
           </div>
 
+          <div class="ai-knowledge-panel" aria-label="Knowledge base">
+            <div class="ai-knowledge-header">
+              <span>Knowledge</span>
+              <strong id="ai-rag-status">Loading</strong>
+            </div>
+            <input id="ai-rag-title" type="text" placeholder="Title" autocomplete="off" />
+            <input id="ai-rag-url" type="url" placeholder="https://source.example" autocomplete="off" />
+            <textarea id="ai-rag-text" rows="3" placeholder="Paste notes for RAG"></textarea>
+            <div class="ai-knowledge-actions">
+              <button id="ai-rag-add-url" type="button">Add URL</button>
+              <button id="ai-rag-add-text" type="button">Add note</button>
+            </div>
+            <div class="ai-knowledge-sources" id="ai-rag-sources"></div>
+          </div>
+
           <div class="ai-history-list" aria-label="Chat history">
             <span>History</span>
             <button class="is-active" type="button">

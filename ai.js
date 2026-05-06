@@ -13,6 +13,13 @@ const sessionTitle = document.querySelector("#ai-session-title");
 const productSelect = document.querySelector("#ai-product-id");
 const forceRefreshInput = document.querySelector("#ai-force-refresh");
 const sendButton = document.querySelector("#ai-send");
+const ragStatusText = document.querySelector("#ai-rag-status");
+const ragTitleInput = document.querySelector("#ai-rag-title");
+const ragUrlInput = document.querySelector("#ai-rag-url");
+const ragTextInput = document.querySelector("#ai-rag-text");
+const ragAddUrlButton = document.querySelector("#ai-rag-add-url");
+const ragAddTextButton = document.querySelector("#ai-rag-add-text");
+const ragSources = document.querySelector("#ai-rag-sources");
 
 const state = {
   sessionId: null,
@@ -187,6 +194,112 @@ function resetComposerHeight() {
   promptInput.style.height = `${Math.min(promptInput.scrollHeight, 180)}px`;
 }
 
+function renderKnowledgeSources(sources) {
+  if (!(ragSources instanceof HTMLElement)) {
+    return;
+  }
+
+  const sourceRows = Array.isArray(sources) ? sources.slice(0, 4) : [];
+  if (!sourceRows.length) {
+    ragSources.innerHTML = '<span class="ai-knowledge-empty">No sources yet</span>';
+    return;
+  }
+
+  ragSources.innerHTML = sourceRows
+    .map((source) => {
+      const title = escapeHtml(source?.title || "Knowledge source");
+      const count = Number(source?.chunkCount || 0);
+      return `<span class="ai-knowledge-source"><strong>${title}</strong><small>${count} chunk${count === 1 ? "" : "s"}</small></span>`;
+    })
+    .join("");
+}
+
+async function loadKnowledgePanel() {
+  if (!(ragStatusText instanceof HTMLElement)) {
+    return;
+  }
+
+  try {
+    const [status, sourcePayload] = await Promise.all([
+      fetchJson("/api/rag/status"),
+      fetchJson("/api/rag/sources?limit=4"),
+    ]);
+    const sourceCount = Number(status?.sourceCount || 0);
+    const chunkCount = Number(status?.chunkCount || 0);
+    ragStatusText.textContent = `${sourceCount}/${chunkCount}`;
+    ragStatusText.title = `Sources: ${sourceCount}, chunks: ${chunkCount}, search: ${status?.searchMode || "unknown"}`;
+    renderKnowledgeSources(sourcePayload?.sources || []);
+  } catch (error) {
+    ragStatusText.textContent = "Offline";
+    ragStatusText.title = error instanceof Error ? error.message : String(error);
+    renderKnowledgeSources([]);
+  }
+}
+
+async function ingestKnowledge(kind) {
+  if (
+    !(ragStatusText instanceof HTMLElement) ||
+    !(ragTitleInput instanceof HTMLInputElement) ||
+    !(ragUrlInput instanceof HTMLInputElement) ||
+    !(ragTextInput instanceof HTMLTextAreaElement)
+  ) {
+    return;
+  }
+
+  const title = ragTitleInput.value.trim();
+  const url = ragUrlInput.value.trim();
+  const content = ragTextInput.value.trim();
+
+  if (kind === "url" && !url) {
+    ragStatusText.textContent = "Need URL";
+    return;
+  }
+
+  if (kind === "text" && (!title || !content)) {
+    ragStatusText.textContent = "Need note";
+    return;
+  }
+
+  if (ragAddUrlButton instanceof HTMLButtonElement) {
+    ragAddUrlButton.disabled = true;
+  }
+  if (ragAddTextButton instanceof HTMLButtonElement) {
+    ragAddTextButton.disabled = true;
+  }
+
+  ragStatusText.textContent = "Indexing";
+  try {
+    if (kind === "url") {
+      await postJson("/api/rag/documents/url", {
+        url,
+        title: title || undefined,
+      });
+      ragUrlInput.value = "";
+    } else {
+      await postJson("/api/rag/documents/text", {
+        title,
+        content,
+        sourceUri: url || undefined,
+      });
+      ragTextInput.value = "";
+    }
+
+    ragTitleInput.value = "";
+    await loadKnowledgePanel();
+    appendMessage("assistant", "Knowledge source indexed. Ask an off-topic question and I will search it before answering.");
+  } catch (error) {
+    ragStatusText.textContent = "Error";
+    appendMessage("assistant", error instanceof Error ? error.message : "Knowledge ingestion failed.");
+  } finally {
+    if (ragAddUrlButton instanceof HTMLButtonElement) {
+      ragAddUrlButton.disabled = false;
+    }
+    if (ragAddTextButton instanceof HTMLButtonElement) {
+      ragAddTextButton.disabled = false;
+    }
+  }
+}
+
 async function createSession() {
   const payload = await postJson("/api/chat/sessions", { title: "Lunatrix AI chat" });
   state.sessionId = payload?.session?.sessionId || payload?.session?.id || null;
@@ -354,6 +467,7 @@ promptButtons.forEach((button) => {
 });
 
 setStatus("Starting", "busy");
+void loadKnowledgePanel();
 void createSession()
   .then(() => {
     setStatus("Ready", "ready");
@@ -367,3 +481,15 @@ void createSession()
     ]);
     setStatus("Offline", "error");
   });
+
+if (ragAddUrlButton instanceof HTMLButtonElement) {
+  ragAddUrlButton.addEventListener("click", () => {
+    void ingestKnowledge("url");
+  });
+}
+
+if (ragAddTextButton instanceof HTMLButtonElement) {
+  ragAddTextButton.addEventListener("click", () => {
+    void ingestKnowledge("text");
+  });
+}

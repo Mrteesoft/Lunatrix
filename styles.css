@@ -890,6 +890,7 @@ body.page-home .page-stage {
 
 .live-signal-surface {
   display: grid;
+  gap: 16px;
   padding: 22px 22px 20px;
   min-height: inherit;
 }
@@ -3461,6 +3462,25 @@ body:not(.is-scrolled).mistral-signal-home .mistral-header .mistral-actions a sp
   gap: 20px;
 }
 
+.mistral-signal-home .hold-monitor-card.is-active-buy {
+  border-color: rgba(58, 175, 116, 0.42);
+  background: linear-gradient(180deg, rgba(225, 255, 239, 0.94), rgba(255, 250, 240, 0.86));
+}
+
+.mistral-signal-home .hold-monitor-card.is-next-buy {
+  border-color: rgba(73, 122, 214, 0.34);
+  background: linear-gradient(180deg, rgba(232, 240, 255, 0.94), rgba(255, 250, 240, 0.86));
+}
+
+.mistral-signal-home .hold-monitor-card.is-history {
+  border-color: rgba(134, 142, 158, 0.3);
+  background: linear-gradient(180deg, rgba(240, 243, 248, 0.94), rgba(255, 250, 240, 0.82));
+}
+
+.mistral-signal-home .hold-monitor-card.is-waiting-buy {
+  border-style: dashed;
+}
+
 .mistral-signal-home .hold-monitor-card-top,
 .mistral-signal-home .hold-monitor-metrics {
   display: flex;
@@ -3499,6 +3519,20 @@ body:not(.is-scrolled).mistral-signal-home .mistral-header .mistral-actions a sp
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.mistral-signal-home .hold-monitor-pill.is-active {
+  background: #7cf5c8;
+}
+
+.mistral-signal-home .hold-monitor-pill.is-next {
+  color: #fff;
+  background: #315fc4;
+}
+
+.mistral-signal-home .hold-monitor-pill.is-history {
+  color: #fff;
+  background: #4f596b;
 }
 
 .mistral-signal-home .hold-monitor-metrics {

@@ -187,7 +187,7 @@
             <span class="section-kicker">Signal studio</span>
             <h2>Live signal board.</h2>
           </div>
-          <p>Connected to your backend gateway with current action, price, confidence, chart context, and tracked pairs.</p>
+          <p>Only BUY setups are displayed here. Each buy is tracked for a 24-hour outcome window before the next BUY is promoted.</p>
         </div>
 
         <article class="hero-browser-frame">
@@ -211,6 +211,12 @@
                 </div>
               </div>
 
+              <div class="live-signal-status-row" aria-live="polite">
+                <span class="live-connection-dot is-pending" id="hero-live-connection"></span>
+                <span id="hero-live-timestamp">Connecting to backend gateway</span>
+              </div>
+              <p class="live-signal-summary" id="hero-live-summary">Waiting for the next BUY signal to start a 24-hour outcome track.</p>
+
               <div class="live-signal-chart-panel">
                 <div class="hero-live-chart" id="hero-live-chart">
                   <div class="hero-live-chart-placeholder">Loading TradingView chart...</div>
@@ -221,16 +227,16 @@
         </article>
       </section>
 
-      <section class="hold-monitor-section" aria-label="Monitored hold coins">
+      <section class="hold-monitor-section" aria-label="Buy signal tracker">
         <div class="section-title-row hold-monitor-title-row">
           <div>
-            <span class="section-kicker">Model watchlist</span>
-            <h2>Hold coins under review.</h2>
+            <span class="section-kicker">24-hour tracker</span>
+            <h2>Buy queue and history.</h2>
           </div>
-          <p>BUY setups graduate into the trade widget. HOLD coins remain monitored here until the model sees a stronger directional edge.</p>
+          <p>The active BUY stays under review for 24 hours. Underperforming reviews move into history, then the board waits for the next BUY candidate.</p>
         </div>
         <div class="hold-monitor-grid" id="hold-monitor-grid">
-          <article class="hold-monitor-empty">Waiting for monitored HOLD signals from the backend.</article>
+          <article class="hold-monitor-empty">Waiting for BUY signals from the backend.</article>
         </div>
       </section>
 

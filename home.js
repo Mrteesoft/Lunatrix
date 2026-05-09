@@ -16,8 +16,11 @@ const menuToggle = document.querySelector(".mistral-menu-toggle");
 const reconnectDelayMs = 4000;
 const tradingViewScriptUrl = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
 const buyTrackerStorageKey = "lunatrix.buySignalTracker.v1";
+const crashPickStorageKey = "lunatrix.lunaCrashPick.v1";
 const buyTrackerWindowMs = 24 * 60 * 60 * 1000;
+const crashPickWindowMs = 24 * 60 * 60 * 1000;
 const buyTrackerHistoryLimit = 12;
+const crashPickHistoryLimit = 12;
 const buyReselectionCooldownMs = 24 * 60 * 60 * 1000;
 const minimumBuyPerformancePct = 0;
 const placeholderProductIds = new Set(["ASSET-USD", "SIGNAL-USD"]);
@@ -36,6 +39,7 @@ const state = {
   snapshot: null,
   activeTradingViewSymbol: null,
   buyTracker: loadBuyTrackerState(),
+  crashPick: loadCrashPickState(),
 };
 
 function setMobileMenuOpen(isOpen) {
@@ -345,6 +349,63 @@ function saveBuyTrackerState() {
   }
 }
 
+function createEmptyCrashPickState() {
+  return {
+    active: null,
+    history: [],
+  };
+}
+
+function loadCrashPickState() {
+  const emptyState = createEmptyCrashPickState();
+
+  try {
+    const rawValue = window.localStorage?.getItem(crashPickStorageKey);
+    if (!rawValue) {
+      return emptyState;
+    }
+
+    const parsedValue = JSON.parse(rawValue);
+    if (!parsedValue || typeof parsedValue !== "object") {
+      return emptyState;
+    }
+
+    const activeProductId = normalizeProductId(parsedValue.active);
+    const active = activeProductId
+      ? {
+          ...parsedValue.active,
+          productId: activeProductId,
+        }
+      : null;
+    const history = Array.isArray(parsedValue.history)
+      ? parsedValue.history
+          .filter((entry) => normalizeProductId(entry))
+          .slice(0, crashPickHistoryLimit)
+      : [];
+
+    return {
+      active,
+      history,
+    };
+  } catch {
+    return emptyState;
+  }
+}
+
+function saveCrashPickState() {
+  try {
+    window.localStorage?.setItem(
+      crashPickStorageKey,
+      JSON.stringify({
+        active: state.crashPick.active,
+        history: state.crashPick.history.slice(0, crashPickHistoryLimit),
+      }),
+    );
+  } catch {
+    // Local storage can be unavailable in private or embedded browsing contexts.
+  }
+}
+
 function parseTimestampMs(value) {
   if (!value) {
     return null;
@@ -408,6 +469,18 @@ function normalizeProductId(signal) {
 
 function collectSnapshotSignals(snapshot) {
   const rawSignals = [];
+  if (snapshot?.coinOfTheDay) {
+    rawSignals.push(snapshot.coinOfTheDay);
+  }
+  if (snapshot?.marketSummary?.coinOfTheDay) {
+    rawSignals.push(snapshot.marketSummary.coinOfTheDay);
+  }
+  if (Array.isArray(snapshot?.spotlightCandidates)) {
+    rawSignals.push(...snapshot.spotlightCandidates);
+  }
+  if (Array.isArray(snapshot?.marketSummary?.spotlightCandidates)) {
+    rawSignals.push(...snapshot.marketSummary.spotlightCandidates);
+  }
   if (snapshot?.primarySignal) {
     rawSignals.push(snapshot.primarySignal);
   }
@@ -444,11 +517,27 @@ function isBuySignal(signal) {
   return action === "buy" || signalName === "BUY";
 }
 
+function getSignalName(signal) {
+  return String(signal?.signalName || signal?.signal_name || "HOLD").trim().toUpperCase();
+}
+
 function buildTradingViewSymbol(signal) {
   const rawProductId = normalizeProductId(signal);
   const overrideSymbol = tradingViewSymbolOverrides.get(rawProductId);
   if (overrideSymbol) {
     return overrideSymbol;
+  }
+
+  const productMatch = rawProductId.match(/^([A-Z0-9]+)-([A-Z0-9]+)$/u);
+  if (productMatch) {
+    const [, baseSymbol, quoteSymbol] = productMatch;
+    if (quoteSymbol === "USDT") {
+      return `BINANCE:${baseSymbol}USDT`;
+    }
+    if (quoteSymbol === "USD") {
+      return `COINBASE:${baseSymbol}USD`;
+    }
+    return `BINANCE:${baseSymbol}${quoteSymbol}`;
   }
 
   return "COINBASE:BTCUSD";
@@ -457,6 +546,72 @@ function buildTradingViewSymbol(signal) {
 function resolveBuyCandidates(snapshot) {
   return collectSnapshotSignals(snapshot)
     .filter((signal) => isBuySignal(signal) && hasUsableTradingViewProduct(signal));
+}
+
+function getSpotlightScore(signal) {
+  const explicitScore = Number(signal?.coinOfDayScore ?? signal?.spotlightScore);
+  if (Number.isFinite(explicitScore)) {
+    return explicitScore > 1 ? explicitScore : explicitScore * 100;
+  }
+
+  const brainScore = Number(signal?.brain?.decisionScore);
+  if (Number.isFinite(brainScore)) {
+    return brainScore > 1 ? brainScore : brainScore * 100;
+  }
+
+  const confidence = Number(signal?.confidence);
+  return Number.isFinite(confidence) ? confidence * 100 : 0;
+}
+
+function formatScore(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return "-";
+  }
+
+  return `${Math.round(Math.max(numericValue, 0))}/100`;
+}
+
+function resolveSpotlightLabel(signal) {
+  const explicitLabel = String(signal?.spotlightLabel || "").trim();
+  if (explicitLabel) {
+    return explicitLabel;
+  }
+
+  return isBuySignal(signal) ? "Signal coin" : "Coin of the day";
+}
+
+function summarizeSpotlight(signal) {
+  return (
+    signal?.spotlightReason ||
+    signal?.brainSummary ||
+    signal?.reasonSummary ||
+    signal?.explanationSummary ||
+    signal?.signalChat ||
+    "This is the strongest watch candidate while the live BUY gate remains closed."
+  );
+}
+
+function resolveSpotlightCandidates(snapshot) {
+  return collectSnapshotSignals(snapshot)
+    .filter((signal) => hasUsableTradingViewProduct(signal))
+    .sort((leftSignal, rightSignal) => {
+      const scoreDelta = getSpotlightScore(rightSignal) - getSpotlightScore(leftSignal);
+      if (scoreDelta !== 0) {
+        return scoreDelta;
+      }
+
+      return normalizeProductId(leftSignal).localeCompare(normalizeProductId(rightSignal));
+    });
+}
+
+function resolveSpotlightSignal(snapshot) {
+  const explicitSpotlight = snapshot?.coinOfTheDay || snapshot?.marketSummary?.coinOfTheDay;
+  if (explicitSpotlight && hasUsableTradingViewProduct(explicitSpotlight)) {
+    return explicitSpotlight;
+  }
+
+  return resolveSpotlightCandidates(snapshot)[0] || null;
 }
 
 function wasRecentlyClosedBuy(productId, history) {
@@ -503,6 +658,26 @@ function createTrackedBuy(signal, snapshot) {
   };
 }
 
+function createTrackedCrashPick(signal, snapshot) {
+  const startedAtMs = Date.now();
+  const productId = normalizeProductId(signal);
+
+  return {
+    productId,
+    pairSymbol: signal.pairSymbol || signal.productId || productId,
+    symbol: signal.symbol || productId.replace(/-USD$/u, ""),
+    entryPrice: getSignalPrice(signal),
+    entryConfidence: Number(signal.confidence || 0),
+    entryScore: getSpotlightScore(signal),
+    startedAt: new Date(startedAtMs).toISOString(),
+    dueAt: new Date(startedAtMs + crashPickWindowMs).toISOString(),
+    signalTimestamp: toIsoTimestamp(signal.timestamp || signal.generatedAt || snapshot?.generatedAt, startedAtMs),
+    signalName: getSignalName(signal),
+    summary: summarizeSpotlight(signal),
+    awaitingOutcome: false,
+  };
+}
+
 function buildTrackedDisplaySignal(activeBuy, latestSignal) {
   const latestPrice = getSignalPrice(latestSignal) ?? activeBuy.entryPrice;
   const returnPct = calculateReturnPct(activeBuy.entryPrice, latestPrice);
@@ -533,6 +708,38 @@ function buildTrackedDisplaySignal(activeBuy, latestSignal) {
   };
 }
 
+function buildCrashPickDisplaySignal(activePick, latestSignal) {
+  const latestPrice = getSignalPrice(latestSignal) ?? activePick.entryPrice;
+  const returnPct = calculateReturnPct(activePick.entryPrice, latestPrice);
+  const dueAtMs = parseTimestampMs(activePick.dueAt);
+  const timeRemainingMs = dueAtMs === null ? null : Math.max(dueAtMs - Date.now(), 0);
+
+  return {
+    ...(latestSignal || {}),
+    productId: activePick.productId,
+    pairSymbol: activePick.pairSymbol || activePick.productId,
+    symbol: activePick.symbol || activePick.productId.replace(/-USD$/u, ""),
+    close: latestPrice,
+    confidence: activePick.entryConfidence,
+    signalName: activePick.signalName || getSignalName(latestSignal),
+    signal_name: activePick.signalName || getSignalName(latestSignal),
+    spotAction: "watch",
+    spotlightLabel: "LunaCrash pick",
+    timestamp: activePick.signalTimestamp,
+    brainSummary: activePick.summary,
+    changePct: returnPct,
+    pick: {
+      entryPrice: activePick.entryPrice,
+      startedAt: activePick.startedAt,
+      dueAt: activePick.dueAt,
+      returnPct,
+      timeRemainingMs,
+      awaitingOutcome: Boolean(activePick.awaitingOutcome),
+      score: activePick.entryScore,
+    },
+  };
+}
+
 function closeTrackedBuy(activeBuy, latestSignal, returnPct) {
   const exitPrice = getSignalPrice(latestSignal);
   const performedWell = Number(returnPct) >= minimumBuyPerformancePct;
@@ -543,6 +750,70 @@ function closeTrackedBuy(activeBuy, latestSignal, returnPct) {
     exitPrice,
     returnPct,
     outcome: performedWell ? "performed" : "underperformed",
+  };
+}
+
+function closeTrackedCrashPick(activePick, latestSignal, returnPct) {
+  const exitPrice = getSignalPrice(latestSignal);
+  const performedWell = Number(returnPct) >= minimumBuyPerformancePct;
+
+  return {
+    ...activePick,
+    closedAt: new Date().toISOString(),
+    exitPrice,
+    returnPct,
+    outcome: performedWell ? "performed" : "underperformed",
+  };
+}
+
+function updateCrashPickTracking(snapshot, candidateSignal, latestSignalByProduct) {
+  const tracker = state.crashPick;
+
+  if (tracker.active) {
+    const activeProductId = normalizeProductId(tracker.active);
+    tracker.active.productId = activeProductId;
+    const latestSignal = latestSignalByProduct.get(activeProductId) || null;
+    const currentPrice = getSignalPrice(latestSignal);
+    const returnPct = calculateReturnPct(tracker.active.entryPrice, currentPrice);
+    const dueAtMs = parseTimestampMs(tracker.active.dueAt);
+    const reviewDue = dueAtMs !== null && Date.now() >= dueAtMs;
+
+    if (reviewDue && returnPct === null) {
+      tracker.active.awaitingOutcome = true;
+    } else if (reviewDue) {
+      const historyEntry = closeTrackedCrashPick(tracker.active, latestSignal, returnPct);
+      tracker.history = [historyEntry, ...tracker.history].slice(0, crashPickHistoryLimit);
+      tracker.active = null;
+    } else {
+      tracker.active.awaitingOutcome = false;
+    }
+  }
+
+  const candidateProductId = normalizeProductId(candidateSignal);
+  if (!tracker.active && candidateProductId && getSignalPrice(candidateSignal) !== null) {
+    const recentlyClosed = tracker.history.some((entry) => {
+      if (normalizeProductId(entry) !== candidateProductId) {
+        return false;
+      }
+
+      const closedAtMs = parseTimestampMs(entry.closedAt);
+      return closedAtMs !== null && Date.now() - closedAtMs < crashPickWindowMs;
+    });
+
+    if (!recentlyClosed) {
+      tracker.active = createTrackedCrashPick(candidateSignal, snapshot);
+    }
+  }
+
+  const activeProductId = tracker.active ? normalizeProductId(tracker.active) : "";
+  const latestSignal = activeProductId ? latestSignalByProduct.get(activeProductId) || null : null;
+  const activePickSignal = tracker.active ? buildCrashPickDisplaySignal(tracker.active, latestSignal) : null;
+
+  saveCrashPickState();
+
+  return {
+    activePickSignal,
+    history: tracker.history.slice(0, crashPickHistoryLimit),
   };
 }
 
@@ -592,13 +863,32 @@ function updateBuyTracking(snapshot) {
       return productId !== activeProductId && !wasRecentlyClosedBuy(productId, tracker.history);
     })
     .slice(0, 5);
+  const spotlightSignal = resolveSpotlightSignal(snapshot);
+  const crashPickView = updateCrashPickTracking(snapshot, spotlightSignal, latestSignalByProduct);
+  const spotlightProductId = normalizeProductId(spotlightSignal);
+  const nextWatchSignals = resolveSpotlightCandidates(snapshot)
+    .filter((signal) => {
+      const productId = normalizeProductId(signal);
+      return (
+        productId &&
+        productId !== activeProductId &&
+        productId !== spotlightProductId &&
+        productId !== normalizeProductId(crashPickView.activePickSignal) &&
+        !isBuySignal(signal)
+      );
+    })
+    .slice(0, 4);
 
   saveBuyTrackerState();
 
   return {
     activeSignal,
+    spotlightSignal,
+    lunaCrashPickSignal: crashPickView.activePickSignal,
     nextBuySignals,
+    nextWatchSignals,
     history: tracker.history.slice(0, buyTrackerHistoryLimit),
+    pickHistory: crashPickView.history,
   };
 }
 
@@ -681,7 +971,34 @@ function renderBuyTrackerPanel(trackingView) {
         </div>
       </article>
     `);
+  } else if (trackingView.lunaCrashPickSignal) {
+    const signal = trackingView.lunaCrashPickSignal;
+    const pick = signal.pick || {};
+    const entryPrice = formatPrice(pick.entryPrice);
+    const currentPrice = formatPrice(signal.close);
+    const returnPct = formatSignedPercent(pick.returnPct);
+    const reviewLabel = pick.awaitingOutcome
+      ? "Awaiting outcome price"
+      : formatTimeRemaining(pick.timeRemainingMs);
+
+    cards.push(`
+      <article class="hold-monitor-card is-lunacrash-pick">
+        <div class="hold-monitor-card-top">
+          <div>
+            <strong>${escapeHtml(signal.productId || signal.pairSymbol || "Pick")}</strong>
+            <span>${escapeHtml(signal.symbol || "24h performance pick")}</span>
+          </div>
+          <span class="hold-monitor-pill is-lunacrash">LunaCrash</span>
+        </div>
+        <p>Entry ${entryPrice}; current ${currentPrice}. This coin is locked as the 24-hour performance pick until review.</p>
+        <div class="hold-monitor-metrics">
+          <span><small>Return</small>${returnPct}</span>
+          <span><small>Review</small>${escapeHtml(reviewLabel)}</span>
+        </div>
+      </article>
+    `);
   } else {
+    const spotlight = trackingView.spotlightSignal;
     cards.push(`
       <article class="hold-monitor-card is-waiting-buy">
         <div class="hold-monitor-card-top">
@@ -689,15 +1006,34 @@ function renderBuyTrackerPanel(trackingView) {
             <strong>Waiting</strong>
             <span>No active BUY</span>
           </div>
-          <span class="hold-monitor-pill is-next">Buy only</span>
+          <span class="hold-monitor-pill is-next">Gate closed</span>
         </div>
-        <p>The live board is ignoring HOLD, LOSS, and take-profit calls until a BUY setup arrives.</p>
+        <p>The board will not start a 24-hour trade track until a BUY clears. Until then it spotlights the strongest watch coin.</p>
         <div class="hold-monitor-metrics">
           <span><small>Status</small>Scanning</span>
           <span><small>Window</small>24h</span>
         </div>
       </article>
     `);
+
+    if (spotlight) {
+      cards.push(`
+        <article class="hold-monitor-card is-spotlight">
+          <div class="hold-monitor-card-top">
+            <div>
+              <strong>${escapeHtml(spotlight.productId || spotlight.pairSymbol || "Spotlight")}</strong>
+              <span>${escapeHtml(spotlight.symbol || resolveSpotlightLabel(spotlight))}</span>
+            </div>
+            <span class="hold-monitor-pill is-spotlight">Spotlight</span>
+          </div>
+          <p>${escapeHtml(summarizeSpotlight(spotlight))}</p>
+          <div class="hold-monitor-metrics">
+            <span><small>Score</small>${formatScore(getSpotlightScore(spotlight))}</span>
+            <span><small>Signal</small>${escapeHtml(getSignalName(spotlight))}</span>
+          </div>
+        </article>
+      `);
+    }
   }
 
   for (const [index, signal] of trackingView.nextBuySignals.slice(0, 3).entries()) {
@@ -714,6 +1050,30 @@ function renderBuyTrackerPanel(trackingView) {
             <span>${escapeHtml(signal.symbol || `Candidate ${index + 1}`)}</span>
           </div>
           <span class="hold-monitor-pill is-next">Next buy</span>
+        </div>
+        <p>${escapeHtml(summary)}</p>
+        <div class="hold-monitor-metrics">
+          <span><small>Confidence</small>${confidence}</span>
+          <span><small>Last price</small>${price}</span>
+        </div>
+      </article>
+    `);
+  }
+
+  for (const [index, signal] of trackingView.nextWatchSignals.slice(0, 2).entries()) {
+    const productId = signal.productId || signal.pairSymbol || "Unknown";
+    const confidence = formatPercent(signal.confidence);
+    const price = formatPrice(signal.close);
+    const summary = summarizeSpotlight(signal);
+
+    cards.push(`
+      <article class="hold-monitor-card is-watch">
+        <div class="hold-monitor-card-top">
+          <div>
+            <strong>${escapeHtml(productId)}</strong>
+            <span>${escapeHtml(signal.symbol || `Watch ${index + 1}`)}</span>
+          </div>
+          <span class="hold-monitor-pill is-watch">Other coin</span>
         </div>
         <p>${escapeHtml(summary)}</p>
         <div class="hold-monitor-metrics">
@@ -747,6 +1107,29 @@ function renderBuyTrackerPanel(trackingView) {
     `);
   }
 
+  for (const entry of trackingView.pickHistory.slice(0, 2)) {
+    const outcomeLabel = entry.outcome === "underperformed" ? "Underperformed" : "Performed";
+    const returnPct = formatSignedPercent(entry.returnPct);
+    const exitPrice = formatPrice(entry.exitPrice);
+
+    cards.push(`
+      <article class="hold-monitor-card is-history">
+        <div class="hold-monitor-card-top">
+          <div>
+            <strong>${escapeHtml(entry.productId || entry.pairSymbol || "Pick")}</strong>
+            <span>${escapeHtml(formatDate(entry.closedAt))}</span>
+          </div>
+          <span class="hold-monitor-pill is-history">Pick result</span>
+        </div>
+        <p>${escapeHtml(outcomeLabel)} after the LunaCrash 24-hour review at ${exitPrice}.</p>
+        <div class="hold-monitor-metrics">
+          <span><small>Outcome</small>${escapeHtml(outcomeLabel)}</span>
+          <span><small>Return</small>${returnPct}</span>
+        </div>
+      </article>
+    `);
+  }
+
   if (!cards.length) {
     holdMonitorGrid.innerHTML = '<article class="hold-monitor-empty">Waiting for BUY signals from the backend.</article>';
     return;
@@ -761,7 +1144,7 @@ async function loadBuySignalsFromApi() {
   }
 
   try {
-    const response = await fetch(buildBackendUrl("/api/current-signals?action=buy&limit=24"), {
+    const response = await fetch(buildBackendUrl("/api/current-signals?action=all&limit=24"), {
       headers: { Accept: "application/json" },
     });
     if (!response.ok) {
@@ -786,9 +1169,58 @@ function renderSnapshot(snapshot) {
   state.snapshot = snapshot;
   const trackingView = updateBuyTracking(snapshot);
   const activeSignal = trackingView.activeSignal;
+  const spotlightSignal = trackingView.lunaCrashPickSignal || trackingView.spotlightSignal;
   renderBuyTrackerPanel(trackingView);
 
   if (!activeSignal) {
+    if (trackingView.lunaCrashPickSignal) {
+      const pickSignal = trackingView.lunaCrashPickSignal;
+      const pick = pickSignal.pick || {};
+      const reviewText = pick.awaitingOutcome
+        ? "Review due"
+        : formatTimeRemaining(pick.timeRemainingMs);
+      setConnectionState("live", `LunaCrash pick - ${reviewText}`);
+      if (liveSymbol) {
+        liveSymbol.textContent = pickSignal.pairSymbol || pickSignal.productId || "24h pick";
+      }
+      setPrimaryAction("crash-pick", "24h pick");
+      if (livePrice) {
+        livePrice.textContent = formatPrice(pickSignal.close);
+      }
+      if (liveConfidence) {
+        const returnText = formatSignedPercent(pick.returnPct);
+        liveConfidence.textContent =
+          `${formatScore(pick.score)} score - ${returnText} from entry`;
+      }
+      if (liveSummary) {
+        liveSummary.textContent =
+          `LunaCrash pick: track this coin for 24 hours from ${formatPrice(pick.entryPrice)}. ${summarizeSpotlight(pickSignal)}`;
+      }
+      renderTradingViewWidget(pickSignal);
+      return;
+    }
+
+    if (spotlightSignal) {
+      setConnectionState("live", `Watch pick updated ${formatDate(snapshot?.generatedAt)}`);
+      if (liveSymbol) {
+        liveSymbol.textContent = spotlightSignal.pairSymbol || spotlightSignal.productId || "24h pick";
+      }
+      setPrimaryAction("watch", "watch pick");
+      if (livePrice) {
+        livePrice.textContent = formatPrice(spotlightSignal.close);
+      }
+      if (liveConfidence) {
+        liveConfidence.textContent =
+          `${formatScore(getSpotlightScore(spotlightSignal))} spotlight - ${formatPercent(spotlightSignal.confidence)} confidence`;
+      }
+      if (liveSummary) {
+        liveSummary.textContent =
+          `Watch-only pick. ${summarizeSpotlight(spotlightSignal)}`;
+      }
+      renderTradingViewWidget(spotlightSignal);
+      return;
+    }
+
     setConnectionState(snapshot?.generatedAt ? "pending" : "offline", "Waiting for next BUY signal");
     if (liveSymbol) {
       liveSymbol.textContent = "Waiting for BUY";

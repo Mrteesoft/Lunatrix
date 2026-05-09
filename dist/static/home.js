@@ -16,11 +16,11 @@ const menuToggle = document.querySelector(".mistral-menu-toggle");
 const reconnectDelayMs = 4000;
 const tradingViewScriptUrl = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
 const buyTrackerStorageKey = "lunatrix.buySignalTracker.v1";
-const crashPickStorageKey = "lunatrix.lunaCrashPick.v1";
+const performancePickStorageKey = "lunatrix.performancePick.v1";
 const buyTrackerWindowMs = 24 * 60 * 60 * 1000;
-const crashPickWindowMs = 24 * 60 * 60 * 1000;
+const performancePickWindowMs = 24 * 60 * 60 * 1000;
 const buyTrackerHistoryLimit = 12;
-const crashPickHistoryLimit = 12;
+const performancePickHistoryLimit = 12;
 const buyReselectionCooldownMs = 24 * 60 * 60 * 1000;
 const minimumBuyPerformancePct = 0;
 const placeholderProductIds = new Set(["ASSET-USD", "SIGNAL-USD"]);
@@ -39,7 +39,7 @@ const state = {
   snapshot: null,
   activeTradingViewSymbol: null,
   buyTracker: loadBuyTrackerState(),
-  crashPick: loadCrashPickState(),
+  performancePick: loadPerformancePickState(),
 };
 
 function setMobileMenuOpen(isOpen) {
@@ -349,18 +349,18 @@ function saveBuyTrackerState() {
   }
 }
 
-function createEmptyCrashPickState() {
+function createEmptyPerformancePickState() {
   return {
     active: null,
     history: [],
   };
 }
 
-function loadCrashPickState() {
-  const emptyState = createEmptyCrashPickState();
+function loadPerformancePickState() {
+  const emptyState = createEmptyPerformancePickState();
 
   try {
-    const rawValue = window.localStorage?.getItem(crashPickStorageKey);
+    const rawValue = window.localStorage?.getItem(performancePickStorageKey);
     if (!rawValue) {
       return emptyState;
     }
@@ -380,7 +380,7 @@ function loadCrashPickState() {
     const history = Array.isArray(parsedValue.history)
       ? parsedValue.history
           .filter((entry) => normalizeProductId(entry))
-          .slice(0, crashPickHistoryLimit)
+          .slice(0, performancePickHistoryLimit)
       : [];
 
     return {
@@ -392,13 +392,13 @@ function loadCrashPickState() {
   }
 }
 
-function saveCrashPickState() {
+function savePerformancePickState() {
   try {
     window.localStorage?.setItem(
-      crashPickStorageKey,
+      performancePickStorageKey,
       JSON.stringify({
-        active: state.crashPick.active,
-        history: state.crashPick.history.slice(0, crashPickHistoryLimit),
+        active: state.performancePick.active,
+        history: state.performancePick.history.slice(0, performancePickHistoryLimit),
       }),
     );
   } catch {
@@ -658,7 +658,7 @@ function createTrackedBuy(signal, snapshot) {
   };
 }
 
-function createTrackedCrashPick(signal, snapshot) {
+function createTrackedPerformancePick(signal, snapshot) {
   const startedAtMs = Date.now();
   const productId = normalizeProductId(signal);
 
@@ -670,7 +670,7 @@ function createTrackedCrashPick(signal, snapshot) {
     entryConfidence: Number(signal.confidence || 0),
     entryScore: getSpotlightScore(signal),
     startedAt: new Date(startedAtMs).toISOString(),
-    dueAt: new Date(startedAtMs + crashPickWindowMs).toISOString(),
+    dueAt: new Date(startedAtMs + performancePickWindowMs).toISOString(),
     signalTimestamp: toIsoTimestamp(signal.timestamp || signal.generatedAt || snapshot?.generatedAt, startedAtMs),
     signalName: getSignalName(signal),
     summary: summarizeSpotlight(signal),
@@ -708,7 +708,7 @@ function buildTrackedDisplaySignal(activeBuy, latestSignal) {
   };
 }
 
-function buildCrashPickDisplaySignal(activePick, latestSignal) {
+function buildPerformancePickDisplaySignal(activePick, latestSignal) {
   const latestPrice = getSignalPrice(latestSignal) ?? activePick.entryPrice;
   const returnPct = calculateReturnPct(activePick.entryPrice, latestPrice);
   const dueAtMs = parseTimestampMs(activePick.dueAt);
@@ -724,7 +724,7 @@ function buildCrashPickDisplaySignal(activePick, latestSignal) {
     signalName: activePick.signalName || getSignalName(latestSignal),
     signal_name: activePick.signalName || getSignalName(latestSignal),
     spotAction: "watch",
-    spotlightLabel: "LunaCrash pick",
+    spotlightLabel: "Performance pick",
     timestamp: activePick.signalTimestamp,
     brainSummary: activePick.summary,
     changePct: returnPct,
@@ -753,7 +753,7 @@ function closeTrackedBuy(activeBuy, latestSignal, returnPct) {
   };
 }
 
-function closeTrackedCrashPick(activePick, latestSignal, returnPct) {
+function closeTrackedPerformancePick(activePick, latestSignal, returnPct) {
   const exitPrice = getSignalPrice(latestSignal);
   const performedWell = Number(returnPct) >= minimumBuyPerformancePct;
 
@@ -766,8 +766,8 @@ function closeTrackedCrashPick(activePick, latestSignal, returnPct) {
   };
 }
 
-function updateCrashPickTracking(snapshot, candidateSignal, latestSignalByProduct) {
-  const tracker = state.crashPick;
+function updatePerformancePickTracking(snapshot, candidateSignal, latestSignalByProduct) {
+  const tracker = state.performancePick;
 
   if (tracker.active) {
     const activeProductId = normalizeProductId(tracker.active);
@@ -781,8 +781,8 @@ function updateCrashPickTracking(snapshot, candidateSignal, latestSignalByProduc
     if (reviewDue && returnPct === null) {
       tracker.active.awaitingOutcome = true;
     } else if (reviewDue) {
-      const historyEntry = closeTrackedCrashPick(tracker.active, latestSignal, returnPct);
-      tracker.history = [historyEntry, ...tracker.history].slice(0, crashPickHistoryLimit);
+      const historyEntry = closeTrackedPerformancePick(tracker.active, latestSignal, returnPct);
+      tracker.history = [historyEntry, ...tracker.history].slice(0, performancePickHistoryLimit);
       tracker.active = null;
     } else {
       tracker.active.awaitingOutcome = false;
@@ -797,23 +797,23 @@ function updateCrashPickTracking(snapshot, candidateSignal, latestSignalByProduc
       }
 
       const closedAtMs = parseTimestampMs(entry.closedAt);
-      return closedAtMs !== null && Date.now() - closedAtMs < crashPickWindowMs;
+      return closedAtMs !== null && Date.now() - closedAtMs < performancePickWindowMs;
     });
 
     if (!recentlyClosed) {
-      tracker.active = createTrackedCrashPick(candidateSignal, snapshot);
+      tracker.active = createTrackedPerformancePick(candidateSignal, snapshot);
     }
   }
 
   const activeProductId = tracker.active ? normalizeProductId(tracker.active) : "";
   const latestSignal = activeProductId ? latestSignalByProduct.get(activeProductId) || null : null;
-  const activePickSignal = tracker.active ? buildCrashPickDisplaySignal(tracker.active, latestSignal) : null;
+  const activePickSignal = tracker.active ? buildPerformancePickDisplaySignal(tracker.active, latestSignal) : null;
 
-  saveCrashPickState();
+  savePerformancePickState();
 
   return {
     activePickSignal,
-    history: tracker.history.slice(0, crashPickHistoryLimit),
+    history: tracker.history.slice(0, performancePickHistoryLimit),
   };
 }
 
@@ -864,7 +864,7 @@ function updateBuyTracking(snapshot) {
     })
     .slice(0, 5);
   const spotlightSignal = resolveSpotlightSignal(snapshot);
-  const crashPickView = updateCrashPickTracking(snapshot, spotlightSignal, latestSignalByProduct);
+  const performancePickView = updatePerformancePickTracking(snapshot, spotlightSignal, latestSignalByProduct);
   const spotlightProductId = normalizeProductId(spotlightSignal);
   const nextWatchSignals = resolveSpotlightCandidates(snapshot)
     .filter((signal) => {
@@ -873,7 +873,7 @@ function updateBuyTracking(snapshot) {
         productId &&
         productId !== activeProductId &&
         productId !== spotlightProductId &&
-        productId !== normalizeProductId(crashPickView.activePickSignal) &&
+        productId !== normalizeProductId(performancePickView.activePickSignal) &&
         !isBuySignal(signal)
       );
     })
@@ -884,11 +884,11 @@ function updateBuyTracking(snapshot) {
   return {
     activeSignal,
     spotlightSignal,
-    lunaCrashPickSignal: crashPickView.activePickSignal,
+    performancePickSignal: performancePickView.activePickSignal,
     nextBuySignals,
     nextWatchSignals,
     history: tracker.history.slice(0, buyTrackerHistoryLimit),
-    pickHistory: crashPickView.history,
+    pickHistory: performancePickView.history,
   };
 }
 
@@ -971,8 +971,8 @@ function renderBuyTrackerPanel(trackingView) {
         </div>
       </article>
     `);
-  } else if (trackingView.lunaCrashPickSignal) {
-    const signal = trackingView.lunaCrashPickSignal;
+  } else if (trackingView.performancePickSignal) {
+    const signal = trackingView.performancePickSignal;
     const pick = signal.pick || {};
     const entryPrice = formatPrice(pick.entryPrice);
     const currentPrice = formatPrice(signal.close);
@@ -982,13 +982,13 @@ function renderBuyTrackerPanel(trackingView) {
       : formatTimeRemaining(pick.timeRemainingMs);
 
     cards.push(`
-      <article class="hold-monitor-card is-lunacrash-pick">
+      <article class="hold-monitor-card is-performance-pick">
         <div class="hold-monitor-card-top">
           <div>
             <strong>${escapeHtml(signal.productId || signal.pairSymbol || "Pick")}</strong>
             <span>${escapeHtml(signal.symbol || "24h performance pick")}</span>
           </div>
-          <span class="hold-monitor-pill is-lunacrash">LunaCrash</span>
+          <span class="hold-monitor-pill is-performance">24h pick</span>
         </div>
         <p>Entry ${entryPrice}; current ${currentPrice}. This coin is locked as the 24-hour performance pick until review.</p>
         <div class="hold-monitor-metrics">
@@ -1121,7 +1121,7 @@ function renderBuyTrackerPanel(trackingView) {
           </div>
           <span class="hold-monitor-pill is-history">Pick result</span>
         </div>
-        <p>${escapeHtml(outcomeLabel)} after the LunaCrash 24-hour review at ${exitPrice}.</p>
+        <p>${escapeHtml(outcomeLabel)} after the 24-hour performance review at ${exitPrice}.</p>
         <div class="hold-monitor-metrics">
           <span><small>Outcome</small>${escapeHtml(outcomeLabel)}</span>
           <span><small>Return</small>${returnPct}</span>
@@ -1169,21 +1169,21 @@ function renderSnapshot(snapshot) {
   state.snapshot = snapshot;
   const trackingView = updateBuyTracking(snapshot);
   const activeSignal = trackingView.activeSignal;
-  const spotlightSignal = trackingView.lunaCrashPickSignal || trackingView.spotlightSignal;
+  const spotlightSignal = trackingView.performancePickSignal || trackingView.spotlightSignal;
   renderBuyTrackerPanel(trackingView);
 
   if (!activeSignal) {
-    if (trackingView.lunaCrashPickSignal) {
-      const pickSignal = trackingView.lunaCrashPickSignal;
+    if (trackingView.performancePickSignal) {
+      const pickSignal = trackingView.performancePickSignal;
       const pick = pickSignal.pick || {};
       const reviewText = pick.awaitingOutcome
         ? "Review due"
         : formatTimeRemaining(pick.timeRemainingMs);
-      setConnectionState("live", `LunaCrash pick - ${reviewText}`);
+      setConnectionState("live", `Performance pick - ${reviewText}`);
       if (liveSymbol) {
         liveSymbol.textContent = pickSignal.pairSymbol || pickSignal.productId || "24h pick";
       }
-      setPrimaryAction("crash-pick", "24h pick");
+      setPrimaryAction("performance-pick", "24h pick");
       if (livePrice) {
         livePrice.textContent = formatPrice(pickSignal.close);
       }
@@ -1194,7 +1194,7 @@ function renderSnapshot(snapshot) {
       }
       if (liveSummary) {
         liveSummary.textContent =
-          `LunaCrash pick: track this coin for 24 hours from ${formatPrice(pick.entryPrice)}. ${summarizeSpotlight(pickSignal)}`;
+          `24-hour pick: track this coin for 24 hours from ${formatPrice(pick.entryPrice)}. ${summarizeSpotlight(pickSignal)}`;
       }
       renderTradingViewWidget(pickSignal);
       return;

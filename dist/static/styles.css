@@ -968,7 +968,7 @@ body.page-home .page-stage {
   background: rgba(82, 128, 220, 0.22);
 }
 
-.live-signal-action.is-crash-pick {
+.live-signal-action.is-performance-pick {
   color: #111;
   background: #f0c13b;
 }
@@ -3477,7 +3477,7 @@ body:not(.is-scrolled).mistral-signal-home .mistral-header .mistral-actions a sp
   background: linear-gradient(180deg, rgba(225, 255, 239, 0.94), rgba(255, 250, 240, 0.86));
 }
 
-.mistral-signal-home .hold-monitor-card.is-lunacrash-pick {
+.mistral-signal-home .hold-monitor-card.is-performance-pick {
   border-color: rgba(224, 177, 52, 0.56);
   background: linear-gradient(180deg, rgba(255, 239, 169, 0.98), rgba(255, 250, 240, 0.88));
 }
@@ -3550,7 +3550,7 @@ body:not(.is-scrolled).mistral-signal-home .mistral-header .mistral-actions a sp
   background: #7cf5c8;
 }
 
-.mistral-signal-home .hold-monitor-pill.is-lunacrash {
+.mistral-signal-home .hold-monitor-pill.is-performance {
   background: #f0c13b;
 }
 

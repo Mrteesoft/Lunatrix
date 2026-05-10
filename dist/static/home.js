@@ -21,7 +21,6 @@ const buyTrackerWindowMs = 24 * 60 * 60 * 1000;
 const performancePickWindowMs = 24 * 60 * 60 * 1000;
 const buyTrackerHistoryLimit = 12;
 const performancePickHistoryLimit = 12;
-const buyReselectionCooldownMs = 24 * 60 * 60 * 1000;
 const minimumBuyPerformancePct = 0;
 const placeholderProductIds = new Set(["ASSET-USD", "SIGNAL-USD"]);
 const tradingViewSymbolOverrides = new Map([
@@ -548,6 +547,15 @@ function resolveBuyCandidates(snapshot) {
     .filter((signal) => isBuySignal(signal) && hasUsableTradingViewProduct(signal));
 }
 
+function resolveAuthoritativeBuySignal(snapshot) {
+  const primarySignal = snapshot?.primarySignal || null;
+  if (isBuySignal(primarySignal) && hasUsableTradingViewProduct(primarySignal)) {
+    return primarySignal;
+  }
+
+  return resolveBuyCandidates(snapshot)[0] || null;
+}
+
 function getSpotlightScore(signal) {
   const explicitScore = Number(signal?.coinOfDayScore ?? signal?.spotlightScore);
   if (Number.isFinite(explicitScore)) {
@@ -614,22 +622,6 @@ function resolveSpotlightSignal(snapshot) {
   return resolveSpotlightCandidates(snapshot)[0] || null;
 }
 
-function wasRecentlyClosedBuy(productId, history) {
-  if (!productId) {
-    return false;
-  }
-
-  const nowMs = Date.now();
-  return history.some((entry) => {
-    if (normalizeProductId(entry) !== productId) {
-      return false;
-    }
-
-    const closedAtMs = parseTimestampMs(entry.closedAt);
-    return closedAtMs !== null && nowMs - closedAtMs < buyReselectionCooldownMs;
-  });
-}
-
 function summarizeSignal(signal) {
   return (
     signal?.brainSummary ||
@@ -641,7 +633,7 @@ function summarizeSignal(signal) {
 }
 
 function createTrackedBuy(signal, snapshot) {
-  const startedAtMs = Date.now();
+  const startedAtMs = parseTimestampMs(signal.timestamp || signal.generatedAt || snapshot?.generatedAt) ?? Date.now();
   const productId = normalizeProductId(signal);
 
   return {
@@ -659,7 +651,7 @@ function createTrackedBuy(signal, snapshot) {
 }
 
 function createTrackedPerformancePick(signal, snapshot) {
-  const startedAtMs = Date.now();
+  const startedAtMs = parseTimestampMs(signal.timestamp || signal.generatedAt || snapshot?.generatedAt) ?? Date.now();
   const productId = normalizeProductId(signal);
 
   return {
@@ -768,6 +760,13 @@ function closeTrackedPerformancePick(activePick, latestSignal, returnPct) {
 
 function updatePerformancePickTracking(snapshot, candidateSignal, latestSignalByProduct) {
   const tracker = state.performancePick;
+  const candidateProductId = normalizeProductId(candidateSignal);
+
+  if (!candidateProductId || getSignalPrice(candidateSignal) === null) {
+    tracker.active = null;
+  } else if (normalizeProductId(tracker.active) !== candidateProductId) {
+    tracker.active = createTrackedPerformancePick(candidateSignal, snapshot);
+  }
 
   if (tracker.active) {
     const activeProductId = normalizeProductId(tracker.active);
@@ -789,22 +788,6 @@ function updatePerformancePickTracking(snapshot, candidateSignal, latestSignalBy
     }
   }
 
-  const candidateProductId = normalizeProductId(candidateSignal);
-  if (!tracker.active && candidateProductId && getSignalPrice(candidateSignal) !== null) {
-    const recentlyClosed = tracker.history.some((entry) => {
-      if (normalizeProductId(entry) !== candidateProductId) {
-        return false;
-      }
-
-      const closedAtMs = parseTimestampMs(entry.closedAt);
-      return closedAtMs !== null && Date.now() - closedAtMs < performancePickWindowMs;
-    });
-
-    if (!recentlyClosed) {
-      tracker.active = createTrackedPerformancePick(candidateSignal, snapshot);
-    }
-  }
-
   const activeProductId = tracker.active ? normalizeProductId(tracker.active) : "";
   const latestSignal = activeProductId ? latestSignalByProduct.get(activeProductId) || null : null;
   const activePickSignal = tracker.active ? buildPerformancePickDisplaySignal(tracker.active, latestSignal) : null;
@@ -823,6 +806,15 @@ function updateBuyTracking(snapshot) {
   const latestSignalByProduct = new Map(
     snapshotSignals.map((signal) => [normalizeProductId(signal), signal]),
   );
+  const buyCandidates = resolveBuyCandidates(snapshot);
+  const authoritativeBuy = resolveAuthoritativeBuySignal(snapshot);
+  const authoritativeBuyProductId = normalizeProductId(authoritativeBuy);
+
+  if (!authoritativeBuyProductId) {
+    tracker.active = null;
+  } else if (normalizeProductId(tracker.active) !== authoritativeBuyProductId) {
+    tracker.active = createTrackedBuy(authoritativeBuy, snapshot);
+  }
 
   if (tracker.active) {
     const activeProductId = normalizeProductId(tracker.active);
@@ -844,23 +836,13 @@ function updateBuyTracking(snapshot) {
     }
   }
 
-  const buyCandidates = resolveBuyCandidates(snapshot);
-  if (!tracker.active) {
-    const nextCandidate = buyCandidates.find(
-      (signal) => !wasRecentlyClosedBuy(normalizeProductId(signal), tracker.history),
-    );
-    if (nextCandidate) {
-      tracker.active = createTrackedBuy(nextCandidate, snapshot);
-    }
-  }
-
   const activeProductId = tracker.active ? normalizeProductId(tracker.active) : "";
   const activeLatestSignal = activeProductId ? latestSignalByProduct.get(activeProductId) || null : null;
   const activeSignal = tracker.active ? buildTrackedDisplaySignal(tracker.active, activeLatestSignal) : null;
   const nextBuySignals = buyCandidates
     .filter((signal) => {
       const productId = normalizeProductId(signal);
-      return productId !== activeProductId && !wasRecentlyClosedBuy(productId, tracker.history);
+      return productId !== activeProductId;
     })
     .slice(0, 5);
   const spotlightSignal = resolveSpotlightSignal(snapshot);
@@ -1145,6 +1127,7 @@ async function loadBuySignalsFromApi() {
 
   try {
     const response = await fetch(buildBackendUrl("/api/current-signals?action=all&limit=24"), {
+      cache: "no-store",
       headers: { Accept: "application/json" },
     });
     if (!response.ok) {
@@ -1276,6 +1259,7 @@ function renderSnapshot(snapshot) {
 async function loadHttpFallback() {
   try {
     const response = await fetch(buildBackendUrl("/api/live/snapshot?force_refresh=false"), {
+      cache: "no-store",
       headers: { Accept: "application/json" },
     }).catch(() => null);
     const snapshotPayload = response && response.ok ? await response.json() : null;
@@ -1290,6 +1274,7 @@ async function loadHttpFallback() {
 
   try {
     const response = await fetch(buildBackendUrl("/api/current-snapshot"), {
+      cache: "no-store",
       headers: { Accept: "application/json" },
     });
     if (!response.ok) {

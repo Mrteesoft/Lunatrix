@@ -20,6 +20,8 @@ const header = document.querySelector(".mistral-header");
 const menuToggle = document.querySelector(".mistral-menu-toggle");
 
 const reconnectDelayMs = 4000;
+const featuredSignalStorageKey = "lunatrix.featuredSignal.v1";
+const featuredSignalWindowMs = 24 * 60 * 60 * 1000;
 const initializedAt = Date.now();
 let preloaderProgress = 0;
 let preloaderTimer = null;
@@ -102,6 +104,12 @@ function getAction(signal) {
   return String(signal?.spotAction || signal?.signalName || signal?.signal_name || "wait").toLowerCase();
 }
 
+function isLossSignal(signal) {
+  const action = getAction(signal).replaceAll("-", "_");
+  const signalName = String(signal?.signalName || signal?.signal_name || "").trim().toLowerCase();
+  return action === "loss" || action === "cut_loss" || signalName === "loss" || signalName === "cut_loss";
+}
+
 function getActionClass(action) {
   const normalizedAction = String(action || "wait").toLowerCase();
   if (normalizedAction === "take_profit") {
@@ -115,6 +123,89 @@ function getActionClass(action) {
 
 function getProductId(signal) {
   return signal?.productId || signal?.pairSymbol || "Unknown pair";
+}
+
+function getSignalScore(signal) {
+  const action = getAction(signal).replaceAll("-", "_");
+  const actionRank =
+    action === "buy" ? 400 :
+    action === "take_profit" ? 180 :
+    action === "wait" || action === "hold" ? 60 :
+    0;
+  const setupScore = Number(signal?.setupScore);
+  const confidence = Number(signal?.confidence);
+  const normalizedSetupScore = Number.isFinite(setupScore) ? setupScore * 100 : 0;
+  const normalizedConfidence = Number.isFinite(confidence) ? confidence * 100 : 0;
+  return actionRank + normalizedSetupScore + normalizedConfidence;
+}
+
+function loadFeaturedSignalState() {
+  try {
+    const rawValue = window.localStorage?.getItem(featuredSignalStorageKey);
+    return rawValue ? JSON.parse(rawValue) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveFeaturedSignalState(signal) {
+  try {
+    const now = Date.now();
+    window.localStorage?.setItem(
+      featuredSignalStorageKey,
+      JSON.stringify({
+        productId: getProductId(signal),
+        lockedAt: new Date(now).toISOString(),
+        expiresAt: new Date(now + featuredSignalWindowMs).toISOString(),
+      }),
+    );
+  } catch {
+    // Local storage can be unavailable in private or embedded browsing contexts.
+  }
+}
+
+function resolveFeaturedSignal(signals, fallbackSignal = null) {
+  const eligibleSignals = signals.filter((signal) => !isLossSignal(signal));
+  if (!eligibleSignals.length) {
+    return fallbackSignal && !isLossSignal(fallbackSignal) ? fallbackSignal : null;
+  }
+
+  const storedState = loadFeaturedSignalState();
+  const storedProductId = String(storedState?.productId || "").trim().toUpperCase();
+  const expiresAtMs = Date.parse(String(storedState?.expiresAt || ""));
+  if (storedProductId && Number.isFinite(expiresAtMs) && Date.now() < expiresAtMs) {
+    const storedSignal = eligibleSignals.find((signal) => getProductId(signal).toUpperCase() === storedProductId);
+    if (storedSignal) {
+      return storedSignal;
+    }
+  }
+
+  const bestSignal = [...eligibleSignals].sort((leftSignal, rightSignal) => {
+    const scoreDelta = getSignalScore(rightSignal) - getSignalScore(leftSignal);
+    if (scoreDelta !== 0) {
+      return scoreDelta;
+    }
+
+    return getProductId(leftSignal).localeCompare(getProductId(rightSignal));
+  })[0];
+  saveFeaturedSignalState(bestSignal);
+  return bestSignal;
+}
+
+function sortSignalsForBoard(signals) {
+  return [...signals].sort((leftSignal, rightSignal) => {
+    const lossDelta = Number(isLossSignal(leftSignal)) - Number(isLossSignal(rightSignal));
+    if (lossDelta !== 0) {
+      return lossDelta;
+    }
+
+    const scoreDelta = getSignalScore(rightSignal) - getSignalScore(leftSignal);
+    if (scoreDelta !== 0) {
+      return scoreDelta;
+    }
+
+    return getProductId(leftSignal).localeCompare(getProductId(rightSignal));
+  });
 }
 
 function getSignalSummary(signal) {
@@ -214,18 +305,22 @@ function renderMetrics(signals, payload) {
 
 function renderSignals(signals, payload = {}) {
   renderMetrics(signals, payload);
-  renderPrimarySignal(payload.primarySignal || signals[0] || null, payload.generatedAt);
+  const featuredSignal = resolveFeaturedSignal(signals, payload.primarySignal || signals[0] || null);
+  renderPrimarySignal(featuredSignal, payload.generatedAt);
 
   if (!signals.length) {
     boardGrid.innerHTML = '<article class="signals-card signals-card-empty">No model-generated signals are published yet.</article>';
-    boardHint.textContent = "The shared feed is empty right now.";
+    boardHint.textContent = "No published model signals are available right now.";
     heroSummary.textContent = "The signal page is connected, but the model has not published a signal feed yet.";
     return;
   }
 
-  boardHint.textContent = `Showing ${signals.length} shared model-generated signal${signals.length === 1 ? "" : "s"}.`;
-  heroSummary.textContent = `Everyone sees this same shared feed of ${payload?.count ?? signals.length} model-generated signal${(payload?.count ?? signals.length) === 1 ? "" : "s"}.`;
-  boardGrid.innerHTML = signals
+  const sortedSignals = sortSignalsForBoard(signals);
+  boardHint.textContent = `Showing ${signals.length} model-generated signal${signals.length === 1 ? "" : "s"}; loss-cut entries are kept below active setups.`;
+  heroSummary.textContent = featuredSignal
+    ? `${getProductId(featuredSignal)} is pinned as the strongest eligible setup for the current 24-hour window.`
+    : "No eligible non-loss setup is available right now.";
+  boardGrid.innerHTML = sortedSignals
     .map((signal) => {
       const action = getAction(signal);
       return `
@@ -266,7 +361,7 @@ async function fetchJson(pathname) {
 
 async function loadSignals() {
   refreshButton.disabled = true;
-  setConnectionState("pending", "Loading shared feed");
+  setConnectionState("pending", "Loading signal feed");
 
   try {
     const payload = await fetchJson("/api/current-signals?action=all&limit=24");
@@ -316,7 +411,7 @@ function connectLiveSignalStream() {
       }
 
       const signals = Array.isArray(payload?.signals) ? payload.signals : [];
-      renderPrimarySignal(payload.primarySignal || signals[0] || null, payload.generatedAt);
+      renderPrimarySignal(resolveFeaturedSignal(signals, payload.primarySignal || signals[0] || null), payload.generatedAt);
     });
 
     socket.addEventListener("error", () => {

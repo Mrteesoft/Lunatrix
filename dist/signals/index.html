@@ -51,7 +51,7 @@
       <section class="signals-hero" aria-label="Signals overview">
         <div class="signals-hero-copy">
           <span class="section-kicker">Live signal board</span>
-          <h1>Best signal, held for 24 hours.</h1>
+          <h1>Best performance picked today.</h1>
           <p id="signalsHeroSummary">Loading the strongest current model signal from the backend feed.</p>
         </div>
         <div class="signals-hero-panel" aria-label="Primary signal">
@@ -65,14 +65,13 @@
             <span id="signalsPrimaryConfidence">Waiting for backend</span>
           </div>
           <p id="signalsPrimarySummary">The strongest signal will appear here when data is available.</p>
+          <div class="signals-primary-chart" id="signalsPrimaryChart">
+            <div class="signals-chart-placeholder">Loading coin chart...</div>
+          </div>
         </div>
       </section>
 
       <section class="signals-toolbar" aria-label="Shared signal feed controls">
-        <div class="signals-shared-note">
-          <span>Signal window</span>
-          <strong>The featured setup stays pinned for 24 hours unless it leaves the published feed.</strong>
-        </div>
         <button class="signals-refresh" id="signalsRefresh" type="button">Refresh <span></span></button>
       </section>
 

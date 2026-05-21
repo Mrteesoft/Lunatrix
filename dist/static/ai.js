@@ -128,14 +128,16 @@ function renderMessages(messages) {
   }
 
   messageStream.innerHTML = "";
-  const visibleMessages = Array.isArray(messages) ? messages : [];
+  const visibleMessages = (Array.isArray(messages) ? messages : []).filter((message) => {
+    const content = String(message?.content || "");
+    return !(
+      message?.role === "assistant" &&
+      content.includes("is ready. Ask about a coin, the live market overview")
+    );
+  });
   visibleMessages.forEach((message) => {
     appendMessage(message?.role === "user" ? "user" : "assistant", message?.content || "");
   });
-
-  if (!visibleMessages.length) {
-    appendMessage("assistant", "Starting model chat session...");
-  }
 }
 
 function appendMessage(role, content, options = {}) {
@@ -286,7 +288,7 @@ async function ingestKnowledge(kind) {
 
     ragTitleInput.value = "";
     await loadKnowledgePanel();
-    appendMessage("assistant", "Knowledge source indexed. Ask an off-topic question and I will search it before answering.");
+    setStatus("Ready", "ready");
   } catch (error) {
     ragStatusText.textContent = "Error";
     appendMessage("assistant", error instanceof Error ? error.message : "Knowledge ingestion failed.");

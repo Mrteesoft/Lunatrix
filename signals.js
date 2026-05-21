@@ -7,6 +7,7 @@ const primaryPair = document.querySelector("#signalsPrimaryPair");
 const primaryAction = document.querySelector("#signalsPrimaryAction");
 const primaryConfidence = document.querySelector("#signalsPrimaryConfidence");
 const primarySummary = document.querySelector("#signalsPrimarySummary");
+const primaryChart = document.querySelector("#signalsPrimaryChart");
 const totalCount = document.querySelector("#signalsTotal");
 const buyCount = document.querySelector("#signalsBuyCount");
 const actionableCount = document.querySelector("#signalsActionableCount");
@@ -20,13 +21,24 @@ const header = document.querySelector(".mistral-header");
 const menuToggle = document.querySelector(".mistral-menu-toggle");
 
 const reconnectDelayMs = 4000;
+const tradingViewScriptUrl = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
 const featuredSignalStorageKey = "lunatrix.featuredSignal.v1";
 const featuredSignalWindowMs = 24 * 60 * 60 * 1000;
+const placeholderProductIds = new Set(["ASSET-USD", "SIGNAL-USD"]);
+const tradingViewSymbolOverrides = new Map([
+  ["BTC-USD", "COINBASE:BTCUSD"],
+  ["ETH-USD", "COINBASE:ETHUSD"],
+  ["SOL-USD", "COINBASE:SOLUSD"],
+  ["LINK-USD", "COINBASE:LINKUSD"],
+  ["AVAX-USD", "COINBASE:AVAXUSD"],
+  ["ARB-USD", "COINBASE:ARBUSD"],
+]);
 const initializedAt = Date.now();
 let preloaderProgress = 0;
 let preloaderTimer = null;
 let activeSocket = null;
 let reconnectTimer = null;
+let activeTradingViewSymbol = null;
 
 function setMobileMenuOpen(isOpen) {
   if (!(header instanceof HTMLElement) || !(menuToggle instanceof HTMLButtonElement)) {
@@ -123,6 +135,33 @@ function getActionClass(action) {
 
 function getProductId(signal) {
   return signal?.productId || signal?.pairSymbol || "Unknown pair";
+}
+
+function hasUsableTradingViewProduct(signal) {
+  const productId = getProductId(signal).toUpperCase().trim();
+  return Boolean(productId) && !placeholderProductIds.has(productId) && /^([A-Z0-9]+)-([A-Z0-9]+)$/u.test(productId);
+}
+
+function buildTradingViewSymbol(signal) {
+  const productId = getProductId(signal).toUpperCase().trim();
+  const overrideSymbol = tradingViewSymbolOverrides.get(productId);
+  if (overrideSymbol) {
+    return overrideSymbol;
+  }
+
+  const productMatch = productId.match(/^([A-Z0-9]+)-([A-Z0-9]+)$/u);
+  if (productMatch) {
+    const [, baseSymbol, quoteSymbol] = productMatch;
+    if (quoteSymbol === "USDT") {
+      return `BINANCE:${baseSymbol}USDT`;
+    }
+    if (quoteSymbol === "USD") {
+      return `COINBASE:${baseSymbol}USD`;
+    }
+    return `BINANCE:${baseSymbol}${quoteSymbol}`;
+  }
+
+  return "COINBASE:BTCUSD";
 }
 
 function getSignalScore(signal) {
@@ -268,6 +307,7 @@ function renderPrimarySignal(signal, generatedAt) {
     primaryAction.textContent = "waiting";
     primaryConfidence.textContent = "No primary signal";
     primarySummary.textContent = "Publish a current signal snapshot to populate the signal board.";
+    renderPrimaryChart(null);
     return;
   }
 
@@ -279,6 +319,59 @@ function renderPrimarySignal(signal, generatedAt) {
   primaryConfidence.textContent = `${formatPercent(signal.confidence)} confidence - ${formatPrice(signal.close ?? signal.price)}`;
   primarySummary.textContent = getSignalSummary(signal);
   setConnectionState("live", `Updated ${formatDate(generatedAt || signal.generatedAt || signal.timestamp)}`);
+  renderPrimaryChart(signal);
+}
+
+function renderPrimaryChart(signal) {
+  if (!(primaryChart instanceof HTMLElement)) {
+    return;
+  }
+
+  if (!signal || !hasUsableTradingViewProduct(signal)) {
+    activeTradingViewSymbol = null;
+    primaryChart.innerHTML = '<div class="signals-chart-placeholder">Chart unavailable for this market</div>';
+    return;
+  }
+
+  const tradingViewSymbol = buildTradingViewSymbol(signal);
+  if (activeTradingViewSymbol === tradingViewSymbol && primaryChart.querySelector("iframe")) {
+    return;
+  }
+
+  activeTradingViewSymbol = tradingViewSymbol;
+  primaryChart.innerHTML = `
+    <div class="tradingview-widget-container signals-tradingview-widget">
+      <div class="tradingview-widget-container__widget"></div>
+    </div>
+  `;
+
+  const widgetHost = primaryChart.querySelector(".signals-tradingview-widget");
+  if (!widgetHost) {
+    return;
+  }
+
+  const widgetScript = document.createElement("script");
+  widgetScript.type = "text/javascript";
+  widgetScript.async = true;
+  widgetScript.src = tradingViewScriptUrl;
+  widgetScript.textContent = JSON.stringify({
+    autosize: true,
+    symbol: tradingViewSymbol,
+    interval: "60",
+    timezone: "Etc/UTC",
+    theme: "dark",
+    style: "1",
+    locale: "en",
+    allow_symbol_change: false,
+    hide_top_toolbar: true,
+    hide_side_toolbar: true,
+    withdateranges: false,
+    save_image: false,
+    calendar: false,
+    studies: ["Volume@tv-basicstudies"],
+    support_host: "https://www.tradingview.com",
+  });
+  widgetHost.append(widgetScript);
 }
 
 function renderMetrics(signals, payload) {
@@ -318,7 +411,7 @@ function renderSignals(signals, payload = {}) {
   const sortedSignals = sortSignalsForBoard(signals);
   boardHint.textContent = `Showing ${signals.length} model-generated signal${signals.length === 1 ? "" : "s"}; loss-cut entries are kept below active setups.`;
   heroSummary.textContent = featuredSignal
-    ? `${getProductId(featuredSignal)} is pinned as the strongest eligible setup for the current 24-hour window.`
+    ? `${getProductId(featuredSignal)} is the current featured setup.`
     : "No eligible non-loss setup is available right now.";
   boardGrid.innerHTML = sortedSignals
     .map((signal) => {

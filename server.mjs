@@ -111,11 +111,11 @@ async function copyStaticBuild() {
 
   await cp(join(frontendDir, "index.html"), join(staticBuildDir, "index.html"));
 
-  for (const directoryName of ["ai", "company", "impact", "platform", "resources", "solutions"]) {
+  for (const directoryName of ["ai", "company", "impact", "platform", "resources", "signals", "solutions"]) {
     await cp(join(frontendDir, directoryName), join(staticBuildDir, directoryName), { recursive: true });
   }
 
-  for (const fileName of ["ai.js", "api-base.js", "app.js", "home.js", "runtime-config.js", "styles.css"]) {
+  for (const fileName of ["ai.js", "api-base.js", "app.js", "home.js", "runtime-config.js", "signals.js", "styles.css"]) {
     await cp(join(frontendDir, fileName), join(staticBuildDir, "static", fileName));
   }
 

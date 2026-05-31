@@ -6298,6 +6298,42 @@ body.page-auth:not(.is-scrolled).mistral-signal-home .mistral-header .mistral-na
 }
 
 @media (max-width: 860px) {
+  .page-auth .mistral-header {
+    position: relative;
+    left: auto;
+    top: auto;
+    grid-template-columns: auto 1fr;
+    width: calc(100% - 32px);
+    min-height: 72px;
+    margin: 20px auto 0;
+    padding: 14px;
+    border: 1px solid rgba(220, 171, 45, 0.26);
+    background: rgba(255, 255, 255, 0.58);
+    transform: none;
+  }
+
+  .page-auth .mistral-header .mistral-nav {
+    justify-content: flex-end;
+    gap: 16px;
+  }
+
+  .page-auth .mistral-header .mistral-nav a {
+    font-size: 0.92rem;
+  }
+
+  .page-auth .mistral-header .pixel-logo {
+    width: 36px;
+    height: 30px;
+    background-size:
+      9px 21px,
+      9px 21px,
+      7px 10px,
+      7px 10px,
+      9px 9px,
+      9px 9px,
+      9px 9px;
+  }
+
   .page-auth .auth-shell {
     grid-template-columns: 1fr;
     align-items: start;
@@ -6348,11 +6384,50 @@ body.page-auth:not(.is-scrolled).mistral-signal-home .mistral-header .mistral-na
   .page-checkout .checkout-shell {
     grid-template-columns: 1fr;
     width: min(760px, calc(100% - 32px));
-    padding-top: 106px;
+    min-height: auto;
+    padding: 58px 0 34px;
+    gap: 28px;
   }
 
   .page-checkout .checkout-copy h1 {
-    font-size: clamp(3.2rem, 14vw, 5.6rem);
+    max-width: 360px;
+    margin: 10px 0 14px;
+    font-size: clamp(3.1rem, 13vw, 4.4rem);
+    line-height: 0.98;
+  }
+
+  .page-checkout .checkout-copy p {
+    max-width: 370px;
+    font-size: 1.1rem;
+    line-height: 1.45;
+  }
+
+  .page-checkout .checkout-card {
+    gap: 14px;
+    padding: 22px;
+  }
+
+  .page-checkout .checkout-card-header {
+    gap: 6px;
+    padding-bottom: 14px;
+  }
+
+  .page-checkout .checkout-card-header strong {
+    font-size: 1.7rem;
+  }
+
+  .page-checkout .checkout-summary {
+    min-height: 48px;
+  }
+
+  .page-checkout .checkout-wallet {
+    padding: 10px 0 16px;
+  }
+
+  .page-checkout .checkout-wallet code {
+    overflow-wrap: anywhere;
+    padding: 13px;
+    font-size: 0.86rem;
   }
 }
 

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lunatrix | Choose a plan</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="mistral-signal-home page-auth page-plans">
+    <main class="mistral-page auth-page pricing-page">
+      <header class="mistral-header">
+        <a class="mistral-mark" href="/" aria-label="Lunatrix home">
+          <span class="pixel-logo" aria-hidden="true"></span>
+          <span class="mistral-brand-name">Lunatrix</span>
+        </a>
+
+        <nav class="mistral-nav" aria-label="Primary">
+          <a href="/">Home</a>
+          <a href="/signals">Signals</a>
+          <a href="/login">Login</a>
+        </nav>
+      </header>
+
+      <section class="pricing-shell" data-plan-panel aria-label="Choose a plan">
+        <div class="pricing-heading">
+          <h1>Pricing</h1>
+          <p>Choose the signal access that fits how you trade.</p>
+        </div>
+
+        <div class="pricing-controls" aria-label="Billing options">
+          <div class="pricing-toggle" role="group" aria-label="Billing cycle">
+            <button class="is-active" type="button" data-billing-option="annual">Annually <span>save 20%</span></button>
+            <button type="button" data-billing-option="monthly">Monthly</button>
+          </div>
+          <p>Price in <strong>USD</strong></p>
+        </div>
+
+        <div class="pricing-grid">
+          <article class="pricing-card">
+            <div>
+              <h2>Free</h2>
+              <strong>$0<span>/month</span></strong>
+              <p class="pricing-note">For exploring Lunatrix and checking the live signal board.</p>
+            </div>
+            <hr />
+            <div>
+              <p class="pricing-included">Included</p>
+              <ul>
+                <li>Live signal board access</li>
+                <li>Market cards and confidence scores</li>
+                <li>Basic signal history</li>
+                <li>Core BTC, ETH, and SOL views</li>
+              </ul>
+            </div>
+            <button class="pricing-button" type="button" data-plan-choice="free">
+              <span class="button-label">Start free</span>
+              <span class="button-loader" aria-hidden="true"></span>
+            </button>
+          </article>
+
+          <article class="pricing-card is-featured">
+            <div class="pricing-card-topline">
+              <h2>Plus</h2>
+              <span>Most popular</span>
+            </div>
+            <div>
+              <strong>$19<span>/month</span></strong>
+              <p class="pricing-note">$182 billed yearly</p>
+            </div>
+            <hr />
+            <div>
+              <p class="pricing-included">All in Free, plus:</p>
+              <ul>
+                <li>Expanded signal history</li>
+                <li>Advanced market context</li>
+                <li>Priority signal refresh views</li>
+                <li>Watchlist-ready market tracking</li>
+                <li>Signal confidence breakdowns</li>
+              </ul>
+            </div>
+            <button class="pricing-button is-dark" type="button" data-plan-choice="plus">
+              <span class="button-label">Choose Plus</span>
+              <span class="button-loader" aria-hidden="true"></span>
+            </button>
+          </article>
+
+          <article class="pricing-card">
+            <div>
+              <h2>Pro</h2>
+              <strong>$49<span>/month</span></strong>
+              <p class="pricing-note">$470 billed yearly</p>
+            </div>
+            <hr />
+            <div>
+              <p class="pricing-included">All in Plus, plus:</p>
+              <ul>
+                <li>Pro signal workspace</li>
+                <li>Higher-priority market updates</li>
+                <li>Portfolio-aware signal context</li>
+                <li>Advanced risk and entry notes</li>
+                <li>Dedicated product support</li>
+              </ul>
+            </div>
+            <button class="pricing-button" type="button" data-plan-choice="pro">
+              <span class="button-label">Choose Pro</span>
+              <span class="button-loader" aria-hidden="true"></span>
+            </button>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/runtime-config.js"></script>
+    <script type="module" src="/static/auth.js"></script>
+  </body>
+</html>

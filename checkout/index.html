@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lunatrix | Crypto checkout</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="mistral-signal-home page-auth page-checkout">
+    <main class="mistral-page auth-page checkout-page">
+      <header class="mistral-header">
+        <a class="mistral-mark" href="/" aria-label="Lunatrix home">
+          <span class="pixel-logo" aria-hidden="true"></span>
+          <span class="mistral-brand-name">Lunatrix</span>
+        </a>
+
+        <nav class="mistral-nav" aria-label="Primary">
+          <a href="/">Home</a>
+          <a href="/plans">Plans</a>
+          <a href="/signals">Signals</a>
+        </nav>
+      </header>
+
+      <section class="checkout-shell" aria-label="Crypto checkout">
+        <div class="checkout-copy">
+          <span class="section-kicker">Monthly checkout</span>
+          <h1>Pay with crypto.</h1>
+          <p>Complete your monthly plan with a crypto payment and continue to your signal workspace.</p>
+        </div>
+
+        <article class="checkout-card">
+          <div class="checkout-card-header">
+            <span>Selected plan</span>
+            <strong data-checkout-plan>Plus plan</strong>
+          </div>
+          <div class="checkout-summary">
+            <span>Network</span>
+            <strong>USDT / USDC</strong>
+          </div>
+          <div class="checkout-summary">
+            <span>Billing</span>
+            <strong data-checkout-billing>Monthly</strong>
+          </div>
+          <div class="checkout-summary">
+            <span>Amount</span>
+            <strong data-checkout-amount>$19/month</strong>
+          </div>
+          <div class="checkout-wallet">
+            <span>Wallet address</span>
+            <code>0x7A4f...91C2</code>
+          </div>
+          <button class="pricing-button is-dark checkout-pay-button" type="button" data-crypto-checkout>
+            <span class="button-label">Pay with crypto</span>
+            <span class="button-loader" aria-hidden="true"></span>
+          </button>
+          <a class="checkout-back-link" href="/plans">Back to plans</a>
+        </article>
+      </section>
+    </main>
+
+    <script src="/static/runtime-config.js"></script>
+    <script type="module" src="/static/auth.js"></script>
+  </body>
+</html>

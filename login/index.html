@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lunatrix | Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="mistral-signal-home page-auth">
+    <main class="mistral-page auth-page">
+      <header class="mistral-header">
+        <a class="mistral-mark" href="/" aria-label="Lunatrix home">
+          <span class="pixel-logo" aria-hidden="true"></span>
+          <span class="mistral-brand-name">Lunatrix</span>
+        </a>
+
+        <nav class="mistral-nav" aria-label="Primary">
+          <a href="/">Home</a>
+          <a href="/signals">Signals</a>
+          <a href="/signup">Sign up</a>
+        </nav>
+      </header>
+
+      <section class="auth-shell" aria-label="Login">
+        <div class="auth-copy">
+          <span class="section-kicker">Signal access</span>
+          <h1>Login to Lunatrix.</h1>
+          <p>Return to your signal workspace and continue tracking live market intelligence.</p>
+        </div>
+
+        <form class="auth-card" data-auth-form="login">
+          <label>
+            <span>Email</span>
+            <input name="email" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input name="password" type="password" autocomplete="current-password" minlength="8" required />
+          </label>
+          <button type="submit">Login</button>
+          <p class="auth-message" data-auth-message>Enter your account details to continue.</p>
+          <p class="auth-switch">New to Lunatrix? <a href="/signup">Create an account</a></p>
+        </form>
+      </section>
+
+      <div class="auth-success-overlay" data-login-success hidden role="status" aria-live="polite">
+        <article class="auth-success-card">
+          <span class="auth-success-mark" aria-hidden="true"></span>
+          <h2>Login successful</h2>
+          <p>Preparing your workspace.</p>
+        </article>
+      </div>
+    </main>
+
+    <script src="/static/runtime-config.js"></script>
+    <script type="module" src="/static/auth.js"></script>
+  </body>
+</html>

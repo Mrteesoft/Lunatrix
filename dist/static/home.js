@@ -1,4 +1,5 @@
 import { buildBackendUrl, buildBackendWebSocketUrl } from "./api-base.js";
+import { getAuthHeaders, getAuthToken } from "./auth.js";
 
 const liveSymbol = document.querySelector("#hero-live-symbol");
 const liveAction = document.querySelector("#hero-live-action");
@@ -1128,7 +1129,10 @@ async function loadBuySignalsFromApi() {
   try {
     const response = await fetch(buildBackendUrl("/api/current-signals?action=all&limit=24"), {
       cache: "no-store",
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        ...getAuthHeaders(),
+      },
     });
     if (!response.ok) {
       return;
@@ -1260,7 +1264,10 @@ async function loadHttpFallback() {
   try {
     const response = await fetch(buildBackendUrl("/api/live/snapshot?force_refresh=false"), {
       cache: "no-store",
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        ...getAuthHeaders(),
+      },
     }).catch(() => null);
     const snapshotPayload = response && response.ok ? await response.json() : null;
 
@@ -1275,7 +1282,10 @@ async function loadHttpFallback() {
   try {
     const response = await fetch(buildBackendUrl("/api/current-snapshot"), {
       cache: "no-store",
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        ...getAuthHeaders(),
+      },
     });
     if (!response.ok) {
       throw new Error(`${response.status} ${response.statusText}`);
@@ -1316,10 +1326,11 @@ function connectLiveSignalStream() {
   }
 
   const websocketPath = document.body?.dataset?.liveSignalWsPath || "/ws/live-signals";
-  const websocketUrl = buildBackendWebSocketUrl(websocketPath);
+  const websocketUrl = new URL(buildBackendWebSocketUrl(websocketPath));
+  websocketUrl.searchParams.set("access_token", getAuthToken());
   setConnectionState("pending", "Connecting to backend gateway");
 
-  const socket = new WebSocket(websocketUrl);
+  const socket = new WebSocket(websocketUrl.toString());
   state.activeSocket = socket;
 
   socket.addEventListener("open", () => {
@@ -1356,5 +1367,9 @@ function connectLiveSignalStream() {
   });
 }
 
-connectLiveSignalStream();
-void loadBuySignalsFromApi();
+if (getAuthToken()) {
+  connectLiveSignalStream();
+  void loadBuySignalsFromApi();
+} else {
+  setConnectionState("pending", "Login required for live signals");
+}

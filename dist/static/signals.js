@@ -1,5 +1,7 @@
 import { buildBackendUrl, buildBackendWebSocketUrl } from "./api-base.js";
+import { clearAuthSession, getAuthHeaders, getAuthToken, requireAuthSession } from "./auth.js";
 
+const activeSession = requireAuthSession();
 const connectionDot = document.querySelector("#signalsConnectionDot");
 const connectionText = document.querySelector("#signalsConnectionText");
 const heroSummary = document.querySelector("#signalsHeroSummary");
@@ -15,6 +17,8 @@ const updatedAt = document.querySelector("#signalsUpdatedAt");
 const boardHint = document.querySelector("#signalsBoardHint");
 const boardGrid = document.querySelector("#signalsBoardGrid");
 const refreshButton = document.querySelector("#signalsRefresh");
+const signOutButton = document.querySelector("#signalsSignOut");
+const accountName = document.querySelector("#signalsAccountName");
 const preloader = document.querySelector("#signalsPreloader");
 const preloaderPercent = document.querySelector("#signalsPreloaderPercent");
 const header = document.querySelector(".mistral-header");
@@ -39,6 +43,10 @@ let preloaderTimer = null;
 let activeSocket = null;
 let reconnectTimer = null;
 let activeTradingViewSymbol = null;
+
+if (accountName && activeSession?.user?.name) {
+  accountName.textContent = activeSession.user.name;
+}
 
 function setMobileMenuOpen(isOpen) {
   if (!(header instanceof HTMLElement) || !(menuToggle instanceof HTMLButtonElement)) {
@@ -441,12 +449,21 @@ function renderSignals(signals, payload = {}) {
 async function fetchJson(pathname) {
   const response = await fetch(buildBackendUrl(pathname), {
     cache: "no-store",
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      ...getAuthHeaders(),
+    },
   });
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(payload?.detail || `${response.status} ${response.statusText}`);
+    if (response.status === 401) {
+      clearAuthSession();
+      window.location.assign(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      throw new Error("Authentication is required.");
+    }
+
+    throw new Error(payload?.message || payload?.detail || `${response.status} ${response.statusText}`);
   }
 
   return payload;
@@ -490,7 +507,9 @@ function connectLiveSignalStream() {
 
   try {
     const websocketPath = document.body?.dataset?.liveSignalWsPath || "/ws/live-signals";
-    const socket = new WebSocket(buildBackendWebSocketUrl(websocketPath));
+    const websocketUrl = new URL(buildBackendWebSocketUrl(websocketPath));
+    websocketUrl.searchParams.set("access_token", getAuthToken());
+    const socket = new WebSocket(websocketUrl.toString());
     activeSocket = socket;
 
     socket.addEventListener("open", () => {
@@ -555,7 +574,16 @@ refreshButton.addEventListener("click", () => {
   void loadSignals();
 });
 
-syncHeaderScrollState();
-startPreloaderProgress();
-connectLiveSignalStream();
-void loadSignals();
+if (signOutButton instanceof HTMLButtonElement) {
+  signOutButton.addEventListener("click", () => {
+    clearAuthSession();
+    window.location.assign("/login");
+  });
+}
+
+if (activeSession?.token) {
+  syncHeaderScrollState();
+  startPreloaderProgress();
+  connectLiveSignalStream();
+  void loadSignals();
+}

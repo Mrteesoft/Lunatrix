@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lunatrix | Sign up</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="mistral-signal-home page-auth">
+    <main class="mistral-page auth-page">
+      <header class="mistral-header">
+        <a class="mistral-mark" href="/" aria-label="Lunatrix home">
+          <span class="pixel-logo" aria-hidden="true"></span>
+          <span class="mistral-brand-name">Lunatrix</span>
+        </a>
+
+        <nav class="mistral-nav" aria-label="Primary">
+          <a href="/">Home</a>
+          <a href="/signals">Signals</a>
+          <a href="/login">Login</a>
+        </nav>
+      </header>
+
+      <section class="auth-shell" aria-label="Create account">
+        <div class="auth-copy">
+          <span class="section-kicker">Signal workspace</span>
+          <h1>Create your account.</h1>
+          <p>Access live crypto signals, market context, and a secure workspace built for active trading decisions.</p>
+        </div>
+
+        <form class="auth-card" data-auth-form="signup">
+          <label>
+            <span>Name</span>
+            <input name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required />
+          </label>
+          <label>
+            <span>Email</span>
+            <input name="email" type="email" autocomplete="email" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input name="password" type="password" autocomplete="new-password" minlength="8" required />
+          </label>
+          <button type="submit">Sign up</button>
+          <p class="auth-message" data-auth-message>Create an account to open your signal workspace.</p>
+          <p class="auth-switch">Already have access? <a href="/login">Login</a></p>
+        </form>
+
+        <section class="auth-plan-panel" data-plan-panel hidden aria-label="Choose a plan">
+          <div class="auth-plan-heading">
+            <span class="section-kicker">Choose your plan</span>
+            <h2>Start with the right signal access.</h2>
+            <p>Your account is ready. Select a plan to continue to the signal workspace.</p>
+          </div>
+
+          <div class="auth-plan-grid">
+            <article class="auth-plan-card">
+              <div>
+                <span class="auth-plan-label">Free</span>
+                <h3>Starter</h3>
+                <strong>$0<span>/mo</span></strong>
+                <p>For checking the live board and tracking core market direction.</p>
+              </div>
+              <ul>
+                <li>Live signal board access</li>
+                <li>Market cards and confidence scores</li>
+                <li>Basic signal history</li>
+              </ul>
+              <button class="auth-plan-button" type="button" data-plan-choice="free">
+                <span class="button-label">Continue free</span>
+                <span class="button-loader" aria-hidden="true"></span>
+              </button>
+            </article>
+
+            <article class="auth-plan-card is-featured">
+              <div>
+                <span class="auth-plan-label">Paid</span>
+                <h3>Pro Signal</h3>
+                <strong>$19<span>/mo</span></strong>
+                <p>For active traders who need deeper context and priority signal views.</p>
+              </div>
+              <ul>
+                <li>Everything in Starter</li>
+                <li>Advanced market context</li>
+                <li>Priority signal refresh views</li>
+              </ul>
+              <button class="auth-plan-button" type="button" data-plan-choice="paid">
+                <span class="button-label">Choose Pro</span>
+                <span class="button-loader" aria-hidden="true"></span>
+              </button>
+            </article>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/static/runtime-config.js"></script>
+    <script type="module" src="/static/auth.js"></script>
+  </body>
+</html>

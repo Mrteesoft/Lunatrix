@@ -2,12 +2,43 @@ import { buildBackendUrl } from "./api-base.js";
 
 const authStorageKey = "lunatrix.auth.session.v1";
 const selectedPlanStorageKey = "lunatrix.auth.plan.v1";
+const selectedPlansByUserStorageKey = "lunatrix.auth.plansByUser.v1";
 const selectedBillingStorageKey = "lunatrix.auth.billing.v1";
+const validPlanChoices = new Set(["free", "plus", "pro"]);
+
+function getJwtExpiresAtMs(token) {
+  if (typeof token !== "string" || token.split(".").length !== 3) {
+    return null;
+  }
+
+  try {
+    const encodedPayload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = encodedPayload.padEnd(encodedPayload.length + ((4 - (encodedPayload.length % 4)) % 4), "=");
+    const payload = JSON.parse(window.atob(paddedPayload));
+    const expiresAtSeconds = Number(payload?.exp);
+    return Number.isFinite(expiresAtSeconds) ? expiresAtSeconds * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function isSessionExpired(session) {
+  const explicitExpiresAtMs = Date.parse(String(session?.expiresAt || ""));
+  const jwtExpiresAtMs = getJwtExpiresAtMs(session?.token);
+  const expiresAtMs = Number.isFinite(explicitExpiresAtMs) ? explicitExpiresAtMs : jwtExpiresAtMs;
+  return Number.isFinite(expiresAtMs) && Date.now() >= expiresAtMs;
+}
 
 export function getStoredAuthSession() {
   try {
     const rawValue = window.localStorage?.getItem(authStorageKey);
-    return rawValue ? JSON.parse(rawValue) : null;
+    const session = rawValue ? JSON.parse(rawValue) : null;
+    if (session?.token && isSessionExpired(session)) {
+      clearAuthSession();
+      return null;
+    }
+
+    return session;
   } catch {
     return null;
   }
@@ -71,21 +102,103 @@ function resolveRedirectTarget() {
   return redirect;
 }
 
-function hasSelectedPlan() {
+function normalizePlanChoice(plan) {
+  const normalizedPlan = String(plan || "").trim().toLowerCase();
+  if (normalizedPlan === "paid") {
+    return "plus";
+  }
+
+  return validPlanChoices.has(normalizedPlan) ? normalizedPlan : "";
+}
+
+function getAuthUserKey(session = getStoredAuthSession()) {
+  return String(session?.user?.id || session?.user?.email || "").trim().toLowerCase();
+}
+
+function readStoredPlan(storageKey) {
   try {
-    const rawPlan = window.localStorage?.getItem(selectedPlanStorageKey);
+    const rawPlan = window.localStorage?.getItem(storageKey);
     const selectedPlan = rawPlan ? JSON.parse(rawPlan) : null;
-    return ["free", "plus", "pro"].includes(selectedPlan?.plan);
+    const normalizedPlan = normalizePlanChoice(selectedPlan?.plan);
+    return normalizedPlan ? { ...selectedPlan, plan: normalizedPlan } : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
-function resolvePostLoginTarget() {
-  return hasSelectedPlan() ? resolveRedirectTarget() : "/plans";
+function readUserPlans() {
+  try {
+    const rawPlans = window.localStorage?.getItem(selectedPlansByUserStorageKey);
+    const plansByUser = rawPlans ? JSON.parse(rawPlans) : {};
+    return plansByUser && typeof plansByUser === "object" ? plansByUser : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeUserPlan(userKey, selectedPlan) {
+  if (!userKey || !selectedPlan?.plan) {
+    return;
+  }
+
+  const plansByUser = readUserPlans();
+  plansByUser[userKey] = selectedPlan;
+  window.localStorage?.setItem(selectedPlansByUserStorageKey, JSON.stringify(plansByUser));
+}
+
+function storeSelectedPlan(selectedPlan) {
+  const normalizedPlan = normalizePlanChoice(selectedPlan?.plan);
+  if (!normalizedPlan) {
+    return;
+  }
+
+  const normalizedSelection = {
+    ...selectedPlan,
+    plan: normalizedPlan,
+  };
+  window.localStorage?.setItem(selectedPlanStorageKey, JSON.stringify(normalizedSelection));
+  writeUserPlan(getAuthUserKey(), normalizedSelection);
+}
+
+function getSelectedPlan(session = getStoredAuthSession()) {
+  const userKey = getAuthUserKey(session);
+  const userPlan = userKey ? readUserPlans()[userKey] : null;
+  const normalizedUserPlan = normalizePlanChoice(userPlan?.plan);
+  if (normalizedUserPlan) {
+    return { ...userPlan, plan: normalizedUserPlan };
+  }
+
+  const legacyPlan = readStoredPlan(selectedPlanStorageKey);
+  if (legacyPlan && userKey) {
+    writeUserPlan(userKey, legacyPlan);
+  }
+
+  return legacyPlan;
+}
+
+function hasSelectedPlan(session = getStoredAuthSession()) {
+  return Boolean(getSelectedPlan(session));
+}
+
+function resolvePostLoginTarget(session = getStoredAuthSession()) {
+  return hasSelectedPlan(session) ? resolveRedirectTarget() : "/plans";
+}
+
+function redirectAuthenticatedAuthPage() {
+  const form = document.querySelector("[data-auth-form]");
+  if (!(form instanceof HTMLFormElement) || !getAuthToken()) {
+    return false;
+  }
+
+  window.location.replace(resolvePostLoginTarget());
+  return true;
 }
 
 function bindAuthForm() {
+  if (redirectAuthenticatedAuthPage()) {
+    return;
+  }
+
   const form = document.querySelector("[data-auth-form]");
   if (!(form instanceof HTMLFormElement)) {
     return;
@@ -115,7 +228,7 @@ function bindAuthForm() {
     }
 
     try {
-      await submitAuthRequest(mode === "signup" ? "/api/auth/signup" : "/api/auth/login", body);
+      const session = await submitAuthRequest(mode === "signup" ? "/api/auth/signup" : "/api/auth/login", body);
       if (mode === "signup") {
         window.location.assign("/plans");
         return;
@@ -124,12 +237,12 @@ function bindAuthForm() {
       if (mode === "login" && loginSuccess instanceof HTMLElement) {
         loginSuccess.hidden = false;
         window.setTimeout(() => {
-          window.location.assign(resolvePostLoginTarget());
+          window.location.assign(resolvePostLoginTarget(session));
         }, 900);
         return;
       }
 
-      window.location.assign(resolvePostLoginTarget());
+      window.location.assign(resolvePostLoginTarget(session));
     } catch (error) {
       if (message) {
         message.textContent = error instanceof Error ? error.message : "Authentication failed.";
@@ -145,6 +258,11 @@ function bindAuthForm() {
 function bindPlanButtons(planPanel = document) {
   if (document.body?.classList.contains("page-plans") && !getAuthToken()) {
     window.location.assign(`/login?redirect=${encodeURIComponent("/plans")}`);
+    return;
+  }
+
+  if (document.body?.classList.contains("page-plans") && hasSelectedPlan()) {
+    window.location.replace(resolveRedirectTarget());
     return;
   }
 
@@ -169,16 +287,13 @@ function bindPlanButtons(planPanel = document) {
     });
 
     button.classList.add("is-loading");
-    const selectedPlan = button.dataset.planChoice || "free";
+    const selectedPlan = normalizePlanChoice(button.dataset.planChoice) || "free";
     const selectedBilling = getSelectedBilling();
-    window.localStorage?.setItem(
-      selectedPlanStorageKey,
-      JSON.stringify({
-        plan: selectedPlan,
-        billing: selectedBilling,
-        selectedAt: new Date().toISOString(),
-      }),
-    );
+    storeSelectedPlan({
+      plan: selectedPlan,
+      billing: selectedBilling,
+      selectedAt: new Date().toISOString(),
+    });
 
     window.setTimeout(() => {
       if (selectedPlan === "free") {
@@ -226,6 +341,12 @@ function bindBillingToggle() {
 
 function bindCheckoutButton() {
   hydrateCheckoutSummary();
+
+  if (document.body?.classList.contains("page-checkout") && !getAuthToken()) {
+    const redirectTo = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+    window.location.assign(`/login?redirect=${redirectTo}`);
+    return;
+  }
 
   const checkoutButton = document.querySelector("[data-crypto-checkout]");
   if (!(checkoutButton instanceof HTMLButtonElement)) {
